@@ -10,1183 +10,1251 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
-
-/* ── TOKENS ── */
-:root {
-  --g900:#0A3D18; --g700:#1B6B2E; --g500:#2E9E4F; --g300:#86EFAC; --g100:#DCFCE7; --g50:#F0FDF4;
-  --slate900:#0F172A; --slate700:#334155; --slate500:#64748B; --slate300:#CBD5E1; --slate100:#F1F5F9; --slate50:#F8FAFC;
-  --red:#DC2626; --red-l:#FEE2E2; --yellow:#D97706; --yellow-l:#FEF3C7; --blue:#1D4ED8; --blue-l:#DBEAFE;
-  --white:#fff; --bg:#EEF4EF;
-  --r:14px; --r-sm:8px;
-  --shadow:0 4px 16px rgba(0,0,0,0.08);
-  --shadow-sm:0 1px 4px rgba(0,0,0,0.07);
+:root{
+  --g900:#0A3D18;--g700:#1B6B2E;--g500:#2E9E4F;--g300:#86EFAC;--g100:#DCFCE7;--g50:#F0FDF4;
+  --s900:#0F172A;--s700:#334155;--s500:#64748B;--s300:#CBD5E1;--s200:#E2E8F0;--s100:#F1F5F9;--s50:#F8FAFC;
+  --red:#DC2626;--redl:#FEE2E2;--yel:#D97706;--yell:#FEF3C7;--blu:#1D4ED8;--blul:#DBEAFE;
+  --wh:#fff;--bg:#EEF4EF;--r:14px;--rsm:8px;
+  --sh:0 4px 16px rgba(0,0,0,.08);--shsm:0 1px 4px rgba(0,0,0,.07);
   --f:'Outfit','Segoe UI',system-ui,sans-serif;
 }
-
-/* ── RESET ── */
 *{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth}
-body{font-family:var(--f);background:var(--bg);color:var(--slate900);min-height:100vh}
-
-/* ── SCREENS ── */
+body{font-family:var(--f);background:var(--bg);color:var(--s900);min-height:100vh}
 .screen{display:none;min-height:100vh}
 .screen.active{display:flex}
 
-/* ══════════════════════════════════════════
-   TELA DE LOGIN
-══════════════════════════════════════════ */
-#s-login{align-items:center;justify-content:center;background:var(--g900)}
+/* ── SETUP / LOGIN ── */
+#s-setup,#s-login{align-items:center;justify-content:center;padding:40px 20px;background:var(--g900)}
+.auth-box{background:var(--wh);border-radius:20px;padding:44px;width:100%;max-width:460px;box-shadow:0 24px 64px rgba(0,0,0,.3)}
+.auth-logo{text-align:center;margin-bottom:32px}
+.auth-logo .icon{width:54px;height:54px;background:var(--g700);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 12px}
+.auth-logo h1{font-size:22px;font-weight:800}
+.auth-logo p{font-size:13px;color:var(--s500);margin-top:4px}
+.err-box{background:var(--redl);border:1.5px solid #FCA5A5;color:var(--red);border-radius:var(--rsm);padding:10px 14px;font-size:13px;font-weight:500;margin-bottom:14px;display:none}
 
-.login-box{
-  background:var(--white);border-radius:20px;padding:48px 44px;
-  width:100%;max-width:420px;box-shadow:0 24px 64px rgba(0,0,0,0.3);
-}
-.login-logo{text-align:center;margin-bottom:32px}
-.login-logo .icon{width:56px;height:56px;background:var(--g700);border-radius:14px;
-  display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 14px}
-.login-logo h1{font-size:22px;font-weight:800;color:var(--slate900)}
-.login-logo p{font-size:13px;color:var(--slate500);margin-top:4px}
+/* ── FIELDS ── */
+.ff{margin-bottom:14px}
+.ff label{display:block;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--s500);margin-bottom:5px}
+.ff input,.ff select,.ff textarea{width:100%;padding:10px 14px;border-radius:var(--rsm);border:1.5px solid var(--s300);font-family:var(--f);font-size:14px;color:var(--s900);background:var(--s50);outline:none;transition:border .15s}
+.ff input:focus,.ff select:focus,.ff textarea:focus{border-color:var(--g500);background:var(--wh)}
+.ff textarea{resize:vertical;min-height:80px}
+.ff-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.ff-grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 
-.form-field{margin-bottom:16px}
-.form-field label{display:block;font-size:12px;font-weight:700;text-transform:uppercase;
-  letter-spacing:.6px;color:var(--slate500);margin-bottom:6px}
-.form-field input,.form-field select,.form-field textarea{
-  width:100%;padding:11px 14px;border-radius:var(--r-sm);
-  border:1.5px solid var(--slate300);font-family:var(--f);font-size:14px;
-  color:var(--slate900);background:var(--slate50);outline:none;transition:border .15s;
-}
-.form-field input:focus,.form-field select:focus,.form-field textarea:focus{
-  border-color:var(--g500);background:var(--white)}
-.form-field textarea{resize:vertical;min-height:80px}
+/* ── BUTTONS ── */
+.btn{width:100%;padding:12px;border-radius:var(--rsm);border:none;font-family:var(--f);font-size:14px;font-weight:700;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:7px}
+.btn-p{background:var(--g700);color:var(--wh)}.btn-p:hover{background:var(--g500)}
+.btn-s{background:var(--s100);color:var(--s700);margin-top:8px}.btn-s:hover{background:var(--s200)}
+.btn-d{background:var(--red);color:var(--wh)}.btn-d:hover{opacity:.88}
+.btn-sm{width:auto;padding:7px 14px;font-size:13px}
+.btn-icon{background:none;border:none;cursor:pointer;font-size:16px;padding:4px 6px;border-radius:6px;transition:background .15s}
+.btn-icon:hover{background:var(--s100)}
+.btn-icon.del:hover{background:var(--redl)}
 
-.btn{
-  width:100%;padding:13px;border-radius:var(--r-sm);border:none;
-  font-family:var(--f);font-size:15px;font-weight:700;cursor:pointer;
-  transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px
-}
-.btn-primary{background:var(--g700);color:var(--white)}
-.btn-primary:hover{background:var(--g500)}
-.btn-secondary{background:var(--slate100);color:var(--slate700);margin-top:10px}
-.btn-secondary:hover{background:var(--slate200)}
-.btn-danger{background:var(--red);color:var(--white)}
-.btn-danger:hover{opacity:.9}
-.btn-sm{width:auto;padding:7px 16px;font-size:13px}
-
-.login-err{
-  background:var(--red-l);border:1.5px solid #FCA5A5;color:var(--red);
-  border-radius:var(--r-sm);padding:10px 14px;font-size:13px;font-weight:500;
-  margin-bottom:16px;display:none
-}
-
-/* ══════════════════════════════════════════
-   LAYOUT COM SIDEBAR (FORM / DASH / CONFIG)
-══════════════════════════════════════════ */
+/* ── APP LAYOUT ── */
 #s-app{flex-direction:row}
+.sidebar{width:224px;flex-shrink:0;background:var(--g900);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50;box-shadow:4px 0 24px rgba(0,0,0,.2)}
+.sb-logo{padding:24px 18px 18px;border-bottom:1px solid rgba(255,255,255,.08)}
+.sb-logo .icon{width:38px;height:38px;background:var(--g500);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:19px;margin-bottom:9px}
+.sb-logo h2{color:#fff;font-weight:800;font-size:14px;line-height:1.3}
+.sb-logo p{color:rgba(255,255,255,.4);font-size:11px;margin-top:2px}
+.sb-nav{padding:12px 10px;flex:1;display:flex;flex-direction:column;gap:2px;overflow-y:auto}
+.sb-sec{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.3);padding:10px 10px 4px}
+.nb{display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:var(--rsm);border:none;background:none;cursor:pointer;color:rgba(255,255,255,.55);font-family:var(--f);font-size:13px;font-weight:500;text-align:left;width:100%;transition:all .15s}
+.nb:hover{background:rgba(255,255,255,.07);color:rgba(255,255,255,.9)}
+.nb.active{background:var(--g500);color:#fff;font-weight:700}
+.nb .ni{font-size:15px;width:18px;text-align:center;flex-shrink:0}
+.sb-bottom{padding:12px 10px;border-top:1px solid rgba(255,255,255,.08)}
+.user-pill{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--rsm);background:rgba(255,255,255,.07)}
+.u-av{width:28px;height:28px;border-radius:50%;background:var(--g500);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;flex-shrink:0}
+.u-nm{font-size:12px;font-weight:600;color:rgba(255,255,255,.8);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btn-out{background:none;border:none;cursor:pointer;color:rgba(255,255,255,.35);font-size:16px;padding:2px;transition:color .15s}
+.btn-out:hover{color:var(--red)}
 
-/* SIDEBAR */
-.sidebar{
-  width:224px;flex-shrink:0;background:var(--g900);
-  display:flex;flex-direction:column;
-  position:fixed;top:0;left:0;bottom:0;z-index:50;
-  box-shadow:4px 0 24px rgba(0,0,0,0.2);
-}
-.sb-logo{padding:26px 20px 20px;border-bottom:1px solid rgba(255,255,255,.08)}
-.sb-logo-icon{width:40px;height:40px;background:var(--g500);border-radius:10px;
-  display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:10px}
-.sb-logo-title{color:#fff;font-weight:800;font-size:14px;line-height:1.3}
-.sb-logo-sub{color:rgba(255,255,255,.4);font-size:11px;margin-top:2px}
-
-.sb-nav{padding:14px 10px;flex:1;display:flex;flex-direction:column;gap:3px}
-.sb-section-label{
-  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;
-  color:rgba(255,255,255,.3);padding:10px 10px 4px;
-}
-.nav-btn{
-  display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r-sm);
-  border:none;background:none;cursor:pointer;color:rgba(255,255,255,.55);
-  font-family:var(--f);font-size:13px;font-weight:500;text-align:left;width:100%;transition:all .15s;
-}
-.nav-btn:hover{background:rgba(255,255,255,.07);color:rgba(255,255,255,.9)}
-.nav-btn.active{background:var(--g500);color:#fff;font-weight:700}
-.nav-icon{font-size:16px;width:20px;text-align:center;flex-shrink:0}
-
-.sb-bottom{padding:14px 10px;border-top:1px solid rgba(255,255,255,.08)}
-.user-pill{
-  display:flex;align-items:center;gap:8px;padding:8px 10px;
-  border-radius:var(--r-sm);background:rgba(255,255,255,.07)
-}
-.user-avatar{
-  width:28px;height:28px;border-radius:50%;background:var(--g500);
-  display:flex;align-items:center;justify-content:center;
-  font-size:12px;font-weight:800;color:#fff;flex-shrink:0
-}
-.user-name{font-size:12px;font-weight:600;color:rgba(255,255,255,.8);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.btn-logout{
-  background:none;border:none;cursor:pointer;color:rgba(255,255,255,.4);
-  font-size:16px;transition:color .15s;padding:2px
-}
-.btn-logout:hover{color:var(--red)}
-
-/* MAIN */
 .main{margin-left:224px;flex:1;display:flex;flex-direction:column;min-height:100vh}
-
-.topbar{
-  background:var(--white);border-bottom:1px solid var(--slate300);
-  padding:14px 28px;display:flex;align-items:center;gap:12px;
-  position:sticky;top:0;z-index:40;box-shadow:var(--shadow-sm)
-}
-.topbar-title{font-weight:800;font-size:16px;color:var(--slate900);flex:1}
-
-.page-content{padding:28px;flex:1}
+.topbar{background:var(--wh);border-bottom:1px solid var(--s300);padding:13px 28px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:40;box-shadow:var(--shsm)}
+.topbar-title{font-weight:800;font-size:16px;flex:1}
+.page{padding:26px 28px;flex:1;display:none}
+.page.active{display:block}
 
 /* ── CARDS ── */
-.card{
-  background:var(--white);border-radius:var(--r);padding:24px;
-  box-shadow:var(--shadow-sm);margin-bottom:18px
-}
-.card-title{font-size:15px;font-weight:700;color:var(--slate900);margin-bottom:18px;
-  display:flex;align-items:center;gap:8px}
-.card-tag{font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;
-  background:var(--g100);color:var(--g700);margin-left:auto}
+.card{background:var(--wh);border-radius:var(--r);padding:22px 24px;box-shadow:var(--shsm);margin-bottom:18px}
+.card-head{display:flex;align-items:center;gap:8px;margin-bottom:18px}
+.card-title{font-size:15px;font-weight:700;flex:1}
+.ctag{font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;background:var(--g100);color:var(--g700)}
 
-/* ── KPI GRID ── */
-.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
-.kpi-card{
-  background:var(--white);border-radius:var(--r);padding:22px;
-  box-shadow:var(--shadow-sm);position:relative;overflow:hidden;
-  transition:transform .15s,box-shadow .15s
-}
-.kpi-card:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
-.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px}
-.kpi-card:nth-child(1)::before{background:var(--g500)}
-.kpi-card:nth-child(2)::before{background:var(--blue)}
-.kpi-card:nth-child(3)::before{background:var(--red)}
-.kpi-card:nth-child(4)::before{background:var(--yellow)}
-.kpi-emoji{font-size:22px;margin-bottom:8px}
-.kpi-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--slate500)}
-.kpi-value{font-size:34px;font-weight:900;line-height:1;margin:6px 0 4px}
-.kpi-card:nth-child(1) .kpi-value{color:var(--g700)}
-.kpi-card:nth-child(2) .kpi-value{color:var(--blue)}
-.kpi-card:nth-child(3) .kpi-value{color:var(--red)}
-.kpi-card:nth-child(4) .kpi-value{color:var(--yellow)}
-.kpi-sub{font-size:12px;color:var(--slate500)}
+/* ── KPIs ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:22px}
+.kpi{background:var(--wh);border-radius:var(--r);padding:20px 22px;box-shadow:var(--shsm);position:relative;overflow:hidden;transition:transform .15s,box-shadow .15s}
+.kpi:hover{transform:translateY(-2px);box-shadow:var(--sh)}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:4px}
+.kpi:nth-child(1)::before{background:var(--g500)}
+.kpi:nth-child(2)::before{background:var(--blu)}
+.kpi:nth-child(3)::before{background:var(--red)}
+.kpi:nth-child(4)::before{background:var(--yel)}
+.kpi-ico{font-size:20px;margin-bottom:7px}
+.kpi-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--s500)}
+.kpi-val{font-size:32px;font-weight:900;line-height:1;margin:5px 0 3px}
+.kpi:nth-child(1) .kpi-val{color:var(--g700)}
+.kpi:nth-child(2) .kpi-val{color:var(--blu)}
+.kpi:nth-child(3) .kpi-val{color:var(--red)}
+.kpi:nth-child(4) .kpi-val{color:var(--yel)}
+.kpi-sub{font-size:12px;color:var(--s500)}
 
-/* ── GRID LAYOUTS ── */
-.grid-2{display:grid;grid-template-columns:3fr 2fr;gap:18px;margin-bottom:18px}
-.grid-eq{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
+/* ── GRID ── */
+.g2{display:grid;grid-template-columns:3fr 2fr;gap:18px;margin-bottom:18px}
+.geq{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
 
 /* ── TABLE ── */
 .tbl-wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:13px}
 thead tr{background:var(--g50)}
-th{padding:11px 14px;text-align:left;font-size:11px;font-weight:800;color:var(--g700);
-  text-transform:uppercase;letter-spacing:.6px;border-bottom:2px solid var(--g100);white-space:nowrap}
-td{padding:12px 14px;border-bottom:1px solid var(--slate100);vertical-align:middle}
-tbody tr{transition:background .1s}
+th{padding:10px 13px;text-align:left;font-size:11px;font-weight:800;color:var(--g700);text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--g100);white-space:nowrap}
+td{padding:11px 13px;border-bottom:1px solid var(--s100);vertical-align:middle}
 tbody tr:hover td{background:var(--g50)}
 tbody tr:last-child td{border-bottom:none}
 
 /* ── BADGES ── */
-.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;
-  border-radius:99px;font-size:11px;font-weight:700}
+.badge{display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:700}
 .b-ok{background:var(--g100);color:var(--g700)}
-.b-nc{background:var(--red-l);color:var(--red)}
+.b-nc{background:var(--redl);color:var(--red)}
 .b-bom{background:var(--g100);color:var(--g700)}
-.b-atencao{background:var(--yellow-l);color:var(--yellow)}
-.b-critico{background:var(--red-l);color:var(--red)}
+.b-atc{background:var(--yell);color:var(--yel)}
+.b-crit{background:var(--redl);color:var(--red)}
+.b-admin{background:#EDE9FE;color:#6D28D9}
+.b-gestor{background:var(--blul);color:var(--blu)}
+.b-tec{background:var(--s100);color:var(--s700)}
 
 /* ── RANKING ── */
-.rank-list{display:flex;flex-direction:column;gap:14px}
-.rank-row{display:flex;align-items:center;gap:12px}
-.rank-medal{font-size:20px;width:26px;text-align:center;flex-shrink:0}
+.rank-list{display:flex;flex-direction:column;gap:13px}
+.rank-row{display:flex;align-items:center;gap:11px}
+.rank-medal{font-size:19px;width:24px;text-align:center;flex-shrink:0}
 .rank-body{flex:1}
-.rank-name{font-size:13px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between}
-.rank-bar-bg{height:8px;background:var(--slate100);border-radius:99px;overflow:hidden}
+.rank-name{font-size:13px;font-weight:700;margin-bottom:5px;display:flex;align-items:center;justify-content:space-between}
+.rank-bg{height:8px;background:var(--s100);border-radius:99px;overflow:hidden}
 .rank-bar{height:100%;border-radius:99px;transition:width 1s cubic-bezier(.4,0,.2,1)}
-.rank-pct{font-size:13px;font-weight:800;min-width:42px;text-align:right;flex-shrink:0}
+.rank-pct{font-size:13px;font-weight:800;min-width:40px;text-align:right;flex-shrink:0}
 
-/* ── FILTROS DO DASH ── */
-.dash-filters{display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap}
-.dash-filters select{
-  font-family:var(--f);font-size:13px;font-weight:500;padding:7px 12px;
-  border-radius:var(--r-sm);border:1.5px solid var(--slate300);
-  color:var(--slate700);background:var(--white);outline:none;cursor:pointer;transition:border .15s
-}
-.dash-filters select:focus,.dash-filters select:hover{border-color:var(--g500)}
-.filter-label{font-size:12px;font-weight:600;color:var(--slate500)}
-.btn-refresh{
-  font-family:var(--f);font-size:13px;font-weight:700;padding:7px 16px;
-  border-radius:var(--r-sm);border:none;background:var(--g700);color:#fff;
-  cursor:pointer;display:flex;align-items:center;gap:6px;transition:background .15s
-}
-.btn-refresh:hover{background:var(--g500)}
+/* ── FILTERS ── */
+.filters{display:flex;align-items:center;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.filters select{font-family:var(--f);font-size:13px;font-weight:500;padding:6px 11px;border-radius:var(--rsm);border:1.5px solid var(--s300);color:var(--s700);background:var(--wh);outline:none;cursor:pointer;transition:border .15s}
+.filters select:hover,.filters select:focus{border-color:var(--g500)}
+.flbl{font-size:12px;font-weight:600;color:var(--s500)}
+.btn-ref{font-family:var(--f);font-size:13px;font-weight:700;padding:7px 14px;border-radius:var(--rsm);border:none;background:var(--g700);color:#fff;cursor:pointer;display:flex;align-items:center;gap:5px;transition:background .15s}
+.btn-ref:hover{background:var(--g500)}
 
-/* ── FORMULÁRIO DE AUDITORIA ── */
-.form-section-header{
-  background:var(--g700);color:#fff;padding:10px 16px;border-radius:var(--r-sm);
-  font-size:13px;font-weight:700;margin:20px 0 10px;letter-spacing:.3px
-}
-.question-block{
-  border:1.5px solid var(--slate200,#E2E8F0);border-radius:var(--r-sm);
-  padding:14px 16px;margin-bottom:8px;background:var(--white)
-}
-.q-label{font-size:14px;font-weight:600;color:var(--slate900);margin-bottom:10px;display:flex;align-items:center;gap:8px}
-.q-peso{
-  font-size:10px;font-weight:800;padding:2px 8px;border-radius:99px;
-  background:var(--g100);color:var(--g700)
-}
-.q-peso.high{background:var(--red-l);color:var(--red)}
-.radio-group{display:flex;gap:12px}
-.radio-opt{
-  display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--r-sm);
-  border:1.5px solid var(--slate300);cursor:pointer;font-size:13px;font-weight:600;
-  transition:all .15s;user-select:none
-}
-.radio-opt:hover{border-color:var(--g500);background:var(--g50)}
-.radio-opt.selected-sim{border-color:var(--g500);background:var(--g100);color:var(--g700)}
-.radio-opt.selected-nao{border-color:var(--red);background:var(--red-l);color:var(--red)}
-.radio-opt input{display:none}
-
+/* ── FORM AUDITORIA ── */
+.sec-hdr{background:var(--g700);color:#fff;padding:9px 15px;border-radius:var(--rsm);font-size:13px;font-weight:700;margin:20px 0 8px;letter-spacing:.3px}
+.sec-hdr.red{background:var(--red)}
+.qblock{border:1.5px solid var(--s200);border-radius:var(--rsm);padding:14px 16px;margin-bottom:7px;background:var(--wh)}
+.q-lbl{font-size:14px;font-weight:600;margin-bottom:10px;display:flex;align-items:flex-start;gap:8px;line-height:1.4}
+.q-peso{font-size:10px;font-weight:800;padding:2px 8px;border-radius:99px;background:var(--g100);color:var(--g700);flex-shrink:0;margin-top:2px}
+.q-peso.hi{background:var(--redl);color:var(--red)}
+.rg{display:flex;gap:10px;flex-wrap:wrap}
+.ro{display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--rsm);border:1.5px solid var(--s300);cursor:pointer;font-size:13px;font-weight:600;transition:all .15s;user-select:none}
+.ro:hover{border-color:var(--g500);background:var(--g50)}
+.ro.sim{border-color:var(--g500);background:var(--g100);color:var(--g700)}
+.ro.nao{border-color:var(--red);background:var(--redl);color:var(--red)}
+.ro input{display:none}
 .nota-grid{display:flex;gap:6px;flex-wrap:wrap}
-.nota-btn{
-  width:40px;height:40px;border-radius:var(--r-sm);border:1.5px solid var(--slate300);
-  background:var(--white);font-family:var(--f);font-size:14px;font-weight:700;
-  cursor:pointer;transition:all .15s;color:var(--slate700)
-}
-.nota-btn:hover{border-color:var(--g500);background:var(--g50)}
-.nota-btn.selected{background:var(--g700);color:#fff;border-color:var(--g700)}
+.nb2{width:40px;height:40px;border-radius:var(--rsm);border:1.5px solid var(--s300);background:var(--wh);font-family:var(--f);font-size:14px;font-weight:700;cursor:pointer;transition:all .15s;color:var(--s700)}
+.nb2:hover{border-color:var(--g500);background:var(--g50)}
+.nb2.sel{background:var(--g700);color:#fff;border-color:var(--g700)}
 
 /* ── CONFIG ── */
-.config-section{margin-bottom:28px}
-.config-section h3{font-size:14px;font-weight:700;color:var(--slate900);margin-bottom:14px;
-  padding-bottom:10px;border-bottom:1.5px solid var(--slate100)}
-.items-list{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
-.item-row{
-  display:flex;align-items:center;gap:10px;padding:10px 14px;
-  border-radius:var(--r-sm);border:1.5px solid var(--slate200,#E2E8F0);background:var(--white)
-}
-.item-label{flex:1;font-size:13px;font-weight:600;color:var(--slate900)}
-.item-sub{font-size:11px;color:var(--slate500);margin-top:1px}
-.btn-icon{
-  background:none;border:none;cursor:pointer;font-size:16px;
-  padding:4px;border-radius:6px;transition:background .15s
-}
-.btn-icon:hover{background:var(--slate100)}
-.btn-icon.del:hover{background:var(--red-l)}
-
-.add-row{display:flex;gap:8px;align-items:flex-end}
-.add-row .form-field{flex:1;margin:0}
-.add-row .btn{width:auto;padding:10px 18px;white-space:nowrap}
-
-/* ── TABS ── */
-.tab-row{display:flex;gap:4px;margin-bottom:18px;border-bottom:2px solid var(--slate100);padding-bottom:0}
-.tab{
-  padding:10px 18px;border:none;background:none;cursor:pointer;
-  font-family:var(--f);font-size:13px;font-weight:600;color:var(--slate500);
-  border-bottom:2.5px solid transparent;transition:all .15s;margin-bottom:-2px
-}
+.cfg-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:960px}
+.cfg-full{grid-column:1/-1}
+.items-list{display:flex;flex-direction:column;gap:7px;margin-bottom:14px;min-height:40px}
+.item-row{display:flex;align-items:center;gap:9px;padding:10px 13px;border-radius:var(--rsm);border:1.5px solid var(--s200);background:var(--wh)}
+.item-lbl{flex:1;font-size:13px;font-weight:600}
+.item-sub{font-size:11px;color:var(--s500);margin-top:1px}
+.add-row{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
+.add-row .ff{flex:1;min-width:120px;margin:0}
+.add-row .btn{width:auto;padding:10px 16px;white-space:nowrap;align-self:flex-end}
+.tabs{display:flex;gap:3px;margin-bottom:18px;border-bottom:2px solid var(--s100);padding-bottom:0}
+.tab{padding:9px 17px;border:none;background:none;cursor:pointer;font-family:var(--f);font-size:13px;font-weight:600;color:var(--s500);border-bottom:2.5px solid transparent;transition:all .15s;margin-bottom:-2px}
 .tab:hover{color:var(--g700)}
 .tab.active{color:var(--g700);border-bottom-color:var(--g700)}
 
+/* ── PERGUNTAS CONFIG ── */
+.pq-row{display:flex;align-items:center;gap:8px;padding:11px 13px;border-radius:var(--rsm);border:1.5px solid var(--s200);background:var(--wh);margin-bottom:6px}
+.pq-drag{color:var(--s300);cursor:grab;font-size:16px;flex-shrink:0}
+.pq-body{flex:1}
+.pq-txt{font-size:13px;font-weight:600;color:var(--s900)}
+.pq-meta{font-size:11px;color:var(--s500);margin-top:2px;display:flex;gap:8px}
+.pq-peso-tag{font-size:10px;font-weight:800;padding:1px 7px;border-radius:99px;background:var(--g100);color:var(--g700)}
+.pq-peso-tag.hi{background:var(--redl);color:var(--red)}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--wh);border-radius:var(--r);padding:30px;width:100%;max-width:520px;box-shadow:0 24px 64px rgba(0,0,0,.25)}
+.modal h3{font-size:17px;font-weight:800;margin-bottom:18px}
+.modal-btns{display:flex;gap:10px;margin-top:20px}
+.modal-btns .btn{flex:1}
+
+/* ── PRINT MODAL ── */
+.print-preview{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;display:none;align-items:flex-start;justify-content:center;padding:30px;overflow-y:auto}
+.print-preview.open{display:flex}
+.print-doc{background:#fff;width:100%;max-width:800px;padding:40px;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.print-header{border-bottom:3px solid var(--g700);padding-bottom:16px;margin-bottom:24px}
+.print-header h1{font-size:20px;font-weight:900;color:var(--g700)}
+.print-header .meta{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px}
+.print-header .meta-item{font-size:12px;color:var(--s500)}<br>
+.print-header .meta-item strong{color:var(--s900)}
+.print-section{margin-bottom:20px}
+.print-section-title{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--g700);margin-bottom:10px;padding-bottom:4px;border-bottom:1.5px solid var(--g100)}
+.print-q{display:flex;align-items:flex-start;gap:12px;padding:8px 0;border-bottom:1px solid var(--s100)}
+.print-q:last-child{border-bottom:none}
+.print-q-txt{flex:1;font-size:13px;color:var(--s700)}
+.print-q-resp{font-size:13px;font-weight:700;min-width:60px;text-align:right}
+.print-q-resp.sim{color:var(--g700)}
+.print-q-resp.nao{color:var(--red)}
+.print-footer{margin-top:28px;padding-top:16px;border-top:2px solid var(--s100);display:flex;justify-content:space-between;align-items:center}
+.print-sig{text-align:center;width:200px}
+.print-sig .sig-line{border-top:1.5px solid var(--s900);margin-bottom:5px;margin-top:32px}
+.print-sig p{font-size:11px;color:var(--s500)}
+.print-conf-badge{font-size:28px;font-weight:900;padding:10px 20px;border-radius:10px}
+.print-actions{display:flex;gap:10px;margin-bottom:16px}
+.print-actions .btn{width:auto;padding:8px 18px}
+
 /* ── EMPTY / TOAST ── */
-.empty{text-align:center;padding:48px 20px;color:var(--slate500)}
-.empty-icon{font-size:40px;margin-bottom:12px}
-.empty-text{font-size:14px;font-weight:500}
-
-.toast{
-  position:fixed;bottom:24px;right:24px;z-index:999;
-  background:var(--slate900);color:#fff;padding:12px 20px;
-  border-radius:var(--r-sm);font-size:13px;font-weight:600;
-  box-shadow:var(--shadow);transform:translateY(100px);opacity:0;
-  transition:all .3s;max-width:320px
-}
+.empty{text-align:center;padding:48px 20px;color:var(--s500)}
+.empty-ico{font-size:36px;margin-bottom:10px}
+.empty-txt{font-size:14px;font-weight:500}
+.toast{position:fixed;bottom:22px;right:22px;z-index:999;background:var(--s900);color:#fff;padding:11px 18px;border-radius:var(--rsm);font-size:13px;font-weight:600;box-shadow:var(--sh);transform:translateY(80px);opacity:0;transition:all .3s;max-width:300px}
 .toast.show{transform:none;opacity:1}
-.toast.success{background:var(--g700)}
-.toast.error{background:var(--red)}
+.toast.ok{background:var(--g700)}
+.toast.err{background:var(--red)}
 
-/* ── FIREBASE CONFIG ── */
-.firebase-setup{
-  max-width:560px;background:var(--white);border-radius:var(--r);
-  padding:36px;box-shadow:var(--shadow-sm)
-}
-.firebase-setup h2{font-size:18px;font-weight:800;margin-bottom:8px}
-.firebase-setup p{font-size:13px;color:var(--slate500);line-height:1.6;margin-bottom:24px}
-.step{display:flex;gap:12px;margin-bottom:14px;font-size:13px;line-height:1.6;color:var(--slate700)}
-.step-n{
-  width:22px;height:22px;border-radius:50%;background:var(--g700);color:#fff;
-  font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px
-}
-code{font-family:monospace;font-size:12px;background:var(--g50);color:var(--g700);padding:2px 6px;border-radius:4px}
+/* ── STEPS (SETUP) ── */
+.step{display:flex;gap:11px;margin-bottom:13px;font-size:13px;line-height:1.6;color:var(--s700)}
+.step-n{width:22px;height:22px;border-radius:50%;background:var(--g700);color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+code{font-family:monospace;font-size:12px;background:var(--g50);color:var(--g700);padding:1px 6px;border-radius:4px}
 
-@media(max-width:900px){
-  .sidebar{width:60px}
-  .sb-logo-title,.sb-logo-sub,.nav-btn span,.sb-section-label,.user-name{display:none}
-  .nav-btn{justify-content:center;padding:12px}
-  .sb-logo{padding:16px 10px}
-  .main{margin-left:60px}
+@media print{
+  body>*:not(.print-preview){display:none!important}
+  .print-preview{position:static;background:none;padding:0;display:block!important}
+  .print-doc{box-shadow:none;border-radius:0}
+  .print-actions{display:none!important}
+}
+@media(max-width:860px){
+  .sidebar{width:58px}
+  .sb-logo h2,.sb-logo p,.nb span:not(.ni),.sb-sec,.u-nm{display:none}
+  .nb{justify-content:center;padding:11px}
+  .sb-logo{padding:14px 8px}
+  .main{margin-left:58px}
   .kpi-grid{grid-template-columns:1fr 1fr}
-  .grid-2,.grid-eq{grid-template-columns:1fr}
+  .g2,.geq,.cfg-grid{grid-template-columns:1fr}
+  .ff-grid,.ff-grid3{grid-template-columns:1fr}
 }
 </style>
 </head>
 <body>
 
-<!-- ══════════════════════════════════════
-     TELA: FIREBASE SETUP
-══════════════════════════════════════ -->
+<!-- ══ SETUP ══ -->
 <div id="s-setup" class="screen active" style="align-items:center;justify-content:center;padding:40px 20px;background:var(--g900)">
-  <div class="firebase-setup">
-    <h2>⚙️ Configuração Inicial do Firebase</h2>
-    <p>Para o sistema funcionar, você precisa criar um projeto Firebase gratuito e colar as credenciais abaixo. Isso só precisa ser feito uma vez.</p>
-
-    <div class="step"><div class="step-n">1</div><div>Acesse <strong>console.firebase.google.com</strong> e crie um projeto.</div></div>
-    <div class="step"><div class="step-n">2</div><div>No projeto, clique em <strong>Adicionar app → Web</strong> e registre o app.</div></div>
-    <div class="step"><div class="step-n">3</div><div>Copie o objeto <code>firebaseConfig</code> e cole os valores abaixo.</div></div>
-    <div class="step"><div class="step-n">4</div><div>Em <strong>Authentication → Provedores</strong>, ative <strong>E-mail/senha</strong>.</div></div>
-    <div class="step"><div class="step-n">5</div><div>Em <strong>Firestore Database</strong>, crie o banco em modo de teste.</div></div>
-
-    <div style="margin-top:24px">
-      <div class="form-field"><label>API Key</label><input id="fbApiKey" placeholder="AIzaSy..."/></div>
-      <div class="form-field"><label>Auth Domain</label><input id="fbAuthDomain" placeholder="meuapp.firebaseapp.com"/></div>
-      <div class="form-field"><label>Project ID</label><input id="fbProjectId" placeholder="meuapp-12345"/></div>
-      <div class="form-field"><label>App ID</label><input id="fbAppId" placeholder="1:123456:web:abc123"/></div>
-      <button class="btn btn-primary" onclick="salvarFirebaseConfig()">🚀 Conectar e Começar</button>
-    </div>
+<div class="auth-box">
+  <div class="auth-logo"><div class="icon">🔥</div><h1>Configuração Firebase</h1><p>Faça isso uma vez e o sistema está pronto</p></div>
+  <div class="step"><div class="step-n">1</div><div>Acesse <strong>console.firebase.google.com</strong> → crie um projeto</div></div>
+  <div class="step"><div class="step-n">2</div><div>Adicionar app → Web → copie o <code>firebaseConfig</code></div></div>
+  <div class="step"><div class="step-n">3</div><div>Authentication → Provedores → ative <strong>E-mail/senha</strong></div></div>
+  <div class="step"><div class="step-n">4</div><div>Firestore Database → criar em <strong>modo de teste</strong></div></div>
+  <div style="margin-top:20px">
+    <div class="ff"><label>API Key</label><input id="fbKey" placeholder="AIzaSy..."/></div>
+    <div class="ff"><label>Auth Domain</label><input id="fbAuth" placeholder="app.firebaseapp.com"/></div>
+    <div class="ff"><label>Project ID</label><input id="fbProj" placeholder="meu-projeto-123"/></div>
+    <div class="ff"><label>App ID</label><input id="fbApp" placeholder="1:123:web:abc"/></div>
+    <button class="btn btn-p" onclick="salvarFB()">🚀 Conectar e Começar</button>
+    <button class="btn btn-s" onclick="showS('s-login')">Já configurei — Ir para Login</button>
   </div>
 </div>
+</div>
 
-<!-- ══════════════════════════════════════
-     TELA: LOGIN
-══════════════════════════════════════ -->
+<!-- ══ LOGIN ══ -->
 <div id="s-login" class="screen" style="align-items:center;justify-content:center;padding:40px 20px;background:var(--g900)">
-  <div class="login-box">
-    <div class="login-logo">
-      <div class="icon">🛡️</div>
-      <h1>Auditoria APR</h1>
-      <p>Gestão de Segurança · Parceiros</p>
-    </div>
-    <div class="login-err" id="loginErr"></div>
-    <div class="form-field"><label>E-mail</label><input type="email" id="loginEmail" placeholder="seu@email.com"/></div>
-    <div class="form-field"><label>Senha</label><input type="password" id="loginSenha" placeholder="••••••••"/></div>
-    <button class="btn btn-primary" onclick="fazerLogin()">Entrar</button>
-    <button class="btn btn-secondary" onclick="showScreen('s-setup')">⚙️ Reconfigurar Firebase</button>
-  </div>
+<div class="auth-box">
+  <div class="auth-logo"><div class="icon">🛡️</div><h1>Auditoria APR</h1><p>Gestão de Segurança · Parceiros</p></div>
+  <div class="err-box" id="loginErr"></div>
+  <div class="ff"><label>E-mail</label><input type="email" id="lEmail" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')fazerLogin()"/></div>
+  <div class="ff"><label>Senha</label><input type="password" id="lSenha" placeholder="••••••••" onkeydown="if(event.key==='Enter')fazerLogin()"/></div>
+  <button class="btn btn-p" onclick="fazerLogin()">Entrar</button>
+  <button class="btn btn-s" onclick="showS('s-setup')">⚙️ Configurar Firebase</button>
+</div>
 </div>
 
-<!-- ══════════════════════════════════════
-     TELA: APP (Sidebar + Main)
-══════════════════════════════════════ -->
+<!-- ══ APP ══ -->
 <div id="s-app" class="screen">
-
-  <!-- SIDEBAR -->
-  <aside class="sidebar">
-    <div class="sb-logo">
-      <div class="sb-logo-icon">🛡️</div>
-      <div class="sb-logo-title">Auditoria APR</div>
-      <div class="sb-logo-sub">Gestão de Segurança</div>
+<aside class="sidebar">
+  <div class="sb-logo"><div class="icon">🛡️</div><h2>Auditoria APR</h2><p>Gestão de Segurança</p></div>
+  <nav class="sb-nav" id="sbNav">
+    <div class="sb-sec">Auditoria</div>
+    <button class="nb active" data-page="formulario" onclick="goP(this)"><span class="ni">📝</span><span>Nova Auditoria</span></button>
+    <!-- Gestor+ -->
+    <button class="nb" data-page="dashboard" data-role="gestor" onclick="goP(this)"><span class="ni">📊</span><span>Dashboard</span></button>
+    <button class="nb" data-page="registros" data-role="gestor" onclick="goP(this)"><span class="ni">📋</span><span>Registros</span></button>
+    <div class="sb-sec" data-role="gestor">Gestão</div>
+    <button class="nb" data-page="perguntas" data-role="gestor" onclick="goP(this)"><span class="ni">❓</span><span>Perguntas</span></button>
+    <button class="nb" data-page="usuarios" data-role="gestor" onclick="goP(this)"><span class="ni">👥</span><span>Usuários</span></button>
+    <!-- Admin only -->
+    <div class="sb-sec" data-role="admin">Admin</div>
+    <button class="nb" data-page="configuracoes" data-role="admin" onclick="goP(this)"><span class="ni">⚙️</span><span>Configurações</span></button>
+  </nav>
+  <div class="sb-bottom">
+    <div class="user-pill">
+      <div class="u-av" id="uAv">?</div>
+      <div class="u-nm" id="uNm">...</div>
+      <button class="btn-out" onclick="fazerLogout()" title="Sair">↩</button>
     </div>
-    <nav class="sb-nav">
-      <div class="sb-section-label">Auditorias</div>
-      <button class="nav-btn active" onclick="goPage('formulario',this)"><span class="nav-icon">📝</span><span>Nova Auditoria</span></button>
-      <button class="nav-btn" onclick="goPage('dashboard',this)"><span class="nav-icon">📊</span><span>Dashboard</span></button>
-      <button class="nav-btn" onclick="goPage('registros',this)"><span class="nav-icon">📋</span><span>Registros</span></button>
-      <div class="sb-section-label" id="nav-config-label" style="display:none">Admin</div>
-      <button class="nav-btn" id="nav-config" onclick="goPage('config',this)" style="display:none"><span class="nav-icon">⚙️</span><span>Configurações</span></button>
-    </nav>
-    <div class="sb-bottom">
-      <div class="user-pill">
-        <div class="user-avatar" id="userAvatar">?</div>
-        <div class="user-name" id="userName">...</div>
-        <button class="btn-logout" onclick="fazerLogout()" title="Sair">↩</button>
+  </div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title" id="topbarT">Nova Auditoria</div>
+    <span id="roleBadge" class="badge" style="margin-left:auto"></span>
+  </div>
+
+  <!-- PAGE: FORMULÁRIO -->
+  <div class="page active" id="page-formulario">
+    <div class="card" style="max-width:740px">
+      <div class="card-head"><span class="card-title">📝 Registro de Auditoria</span></div>
+      <div class="sec-hdr">1. Identificação</div>
+      <div class="ff"><label>Unidade *</label><select id="fUnid" onchange="loadParceiros()"><option value="">Selecione...</option></select></div>
+      <div class="ff"><label>Empresa Parceira *</label><select id="fParc"><option value="">Selecione a unidade primeiro...</option></select></div>
+      <div class="ff-grid">
+        <div class="ff"><label>Data da Auditoria *</label><input type="date" id="fData"/></div>
+        <div class="ff"><label>Número da APR *</label><input type="text" id="fAPR" placeholder="APR-2026-001"/></div>
+      </div>
+      <div class="ff"><label>Local / Frente de Serviço *</label><input type="text" id="fLocal" placeholder="Ex: Linha 3 — Manutenção"/></div>
+      <div id="form-perguntas"></div>
+      <div class="ff" style="margin-top:16px"><label>Comentários Finais</label><textarea id="fComent" placeholder="Observações gerais..."></textarea></div>
+      <button class="btn btn-p" onclick="enviarAuditoria()">✅ Enviar Auditoria</button>
+    </div>
+  </div>
+
+  <!-- PAGE: DASHBOARD -->
+  <div class="page" id="page-dashboard">
+    <div class="filters">
+      <span class="flbl">Unidade:</span><select id="dUnid" onchange="renderDash()"><option value="">Todas</option></select>
+      <span class="flbl">Empresa:</span><select id="dParc" onchange="renderDash()"><option value="">Todas</option></select>
+      <span class="flbl">Período:</span>
+      <select id="dPer" onchange="renderDash()">
+        <option value="">Todo período</option>
+        <option value="30">Últimos 30 dias</option>
+        <option value="90">Últimos 90 dias</option>
+        <option value="180">Últimos 6 meses</option>
+      </select>
+      <button class="btn-ref" onclick="loadAuditorias()">↻ Atualizar</button>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-ico">✅</div><div class="kpi-lbl">Conformidade Geral</div><div class="kpi-val" id="kConf">—</div><div class="kpi-sub">média ponderada</div></div>
+      <div class="kpi"><div class="kpi-ico">📋</div><div class="kpi-lbl">Auditorias</div><div class="kpi-val" id="kAud">—</div><div class="kpi-sub">no período</div></div>
+      <div class="kpi"><div class="kpi-ico">⚠️</div><div class="kpi-lbl">Não Conformidades</div><div class="kpi-val" id="kNC">—</div><div class="kpi-sub">abertas</div></div>
+      <div class="kpi"><div class="kpi-ico">🏆</div><div class="kpi-lbl">Melhor Empresa</div><div class="kpi-val" id="kMel" style="font-size:16px;padding-top:8px">—</div><div class="kpi-sub" id="kMelSub"></div></div>
+    </div>
+    <div class="g2">
+      <div class="card"><div class="card-head"><span class="card-title">% Conformidade por Empresa</span><span class="ctag">Meta ≥ 90%</span></div><canvas id="cBar" height="220"></canvas></div>
+      <div class="card"><div class="card-head"><span class="card-title">Não Conformidades</span></div><canvas id="cNC" height="220"></canvas></div>
+    </div>
+    <div class="card"><div class="card-head"><span class="card-title">Evolução Mensal</span></div><canvas id="cLin" height="260"></canvas></div>
+    <div class="geq">
+      <div class="card"><div class="card-head"><span class="card-title">🏅 Ranking de Empresas</span></div><div class="rank-list" id="rankList"></div></div>
+      <div class="card"><div class="card-head"><span class="card-title">Nota Média por Empresa</span></div><canvas id="cNota" height="240"></canvas></div>
+    </div>
+  </div>
+
+  <!-- PAGE: REGISTROS -->
+  <div class="page" id="page-registros">
+    <div class="filters">
+      <span class="flbl">Unidade:</span><select id="rUnid" onchange="renderReg()"><option value="">Todas</option></select>
+      <span class="flbl">Empresa:</span><select id="rParc" onchange="renderReg()"><option value="">Todas</option></select>
+      <span class="flbl">Status:</span>
+      <select id="rNC" onchange="renderReg()">
+        <option value="">Todos</option>
+        <option value="nc">Apenas NCs</option>
+        <option value="ok">Apenas OK</option>
+      </select>
+      <button class="btn-ref" onclick="loadAuditorias()">↻ Atualizar</button>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-title">Registros</span><span class="ctag" id="cntReg">0</span></div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Data</th><th>Unidade</th><th>Empresa</th><th>APR</th><th>Local</th><th>Técnico</th><th>Nota</th><th>Conf.</th><th>NC</th><th></th></tr></thead>
+          <tbody id="tbReg"></tbody>
+        </table>
       </div>
     </div>
-  </aside>
+  </div>
 
-  <!-- MAIN -->
-  <div class="main">
-    <div class="topbar">
-      <div class="topbar-title" id="topbarTitle">Nova Auditoria</div>
+  <!-- PAGE: PERGUNTAS -->
+  <div class="page" id="page-perguntas">
+    <div class="card" style="max-width:800px">
+      <div class="card-head">
+        <span class="card-title">❓ Gerenciar Perguntas do Formulário</span>
+        <button class="btn btn-p btn-sm" onclick="openModalPergunta(null)">+ Nova Pergunta</button>
+      </div>
+      <div class="tabs">
+        <button class="tab active" onclick="filterSecao('',this)">Todas</button>
+        <button class="tab" onclick="filterSecao('Identificação da APR',this)">Identificação</button>
+        <button class="tab" onclick="filterSecao('Identificação de Riscos',this)">Riscos</button>
+        <button class="tab" onclick="filterSecao('Medidas de Controle',this)">Controles</button>
+        <button class="tab" onclick="filterSecao('Qualidade da APR',this)">Qualidade</button>
+        <button class="tab" onclick="filterSecao('Evidências',this)">Evidências</button>
+        <button class="tab" onclick="filterSecao('Desvios',this)">Desvios</button>
+      </div>
+      <div id="listaPerg"></div>
     </div>
+  </div>
 
-    <!-- ── PAGE: FORMULÁRIO ── -->
-    <div class="page-content" id="page-formulario">
-      <div class="card" style="max-width:720px">
-        <div class="card-title">📝 Registro de Auditoria de APR</div>
-
-        <!-- Identificação -->
-        <div class="form-section-header">1. Identificação</div>
-        <div class="form-field">
-          <label>Unidade *</label>
-          <select id="fUnidade" onchange="carregarParceiros()">
-            <option value="">Selecione a unidade...</option>
+  <!-- PAGE: USUÁRIOS -->
+  <div class="page" id="page-usuarios">
+    <div class="card" style="max-width:800px">
+      <div class="card-head"><span class="card-title">👥 Usuários e Perfis</span></div>
+      <div class="items-list" id="listaUsers"></div>
+      <div style="margin-top:20px;padding-top:20px;border-top:2px solid var(--s100)">
+        <div style="font-size:13px;font-weight:700;margin-bottom:14px;color:var(--s700)">Criar novo usuário</div>
+        <div class="ff-grid3">
+          <div class="ff"><label>Nome</label><input type="text" id="uNome" placeholder="Nome completo"/></div>
+          <div class="ff"><label>E-mail</label><input type="email" id="uEmail" placeholder="email@empresa.com"/></div>
+          <div class="ff"><label>Senha</label><input type="password" id="uSenha" placeholder="Mínimo 6 caracteres"/></div>
+        </div>
+        <div class="ff"><label>Perfil</label>
+          <select id="uPerfil">
+            <option value="tecnico">Técnico — só formulário</option>
+            <option value="gestor">Gestor — formulário, dashboard, registros, perguntas, usuários</option>
+            <option value="admin">Admin — acesso total</option>
           </select>
         </div>
-        <div class="form-field">
-          <label>Empresa Parceira *</label>
-          <select id="fParceiro">
-            <option value="">Selecione a unidade primeiro...</option>
-          </select>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div class="form-field"><label>Data da Auditoria *</label><input type="date" id="fData"/></div>
-          <div class="form-field"><label>Número da APR *</label><input type="text" id="fNumeroAPR" placeholder="APR-2026-001"/></div>
-        </div>
-        <div class="form-field"><label>Local / Frente de Serviço *</label><input type="text" id="fLocal" placeholder="Ex: Manutenção Linha 3"/></div>
-
-        <!-- Seção 1: Identificação da APR -->
-        <div class="form-section-header">2. Identificação da APR</div>
-        <div id="q-bloco-id"></div>
-
-        <!-- Seção 2: Riscos -->
-        <div class="form-section-header">3. Identificação de Riscos</div>
-        <div id="q-bloco-riscos"></div>
-
-        <!-- Seção 3: Controles -->
-        <div class="form-section-header">4. Medidas de Controle</div>
-        <div id="q-bloco-controles"></div>
-
-        <!-- Seção 4: Qualidade -->
-        <div class="form-section-header">5. Qualidade da APR</div>
-        <div id="q-bloco-qualidade"></div>
-
-        <!-- Seção 5: Evidências -->
-        <div class="form-section-header">6. Evidências</div>
-        <div id="q-bloco-evidencias"></div>
-
-        <!-- Seção 6: Desvios -->
-        <div class="form-section-header" style="background:var(--red)">7. Desvios e Não Conformidades</div>
-        <div id="q-bloco-desvios"></div>
-
-        <div class="form-field" style="margin-top:16px">
-          <label>Comentários Finais</label>
-          <textarea id="fComentarios" placeholder="Observações gerais sobre a auditoria..."></textarea>
-        </div>
-
-        <div style="margin-top:8px">
-          <button class="btn btn-primary" onclick="enviarAuditoria()">✅ Enviar Auditoria</button>
-        </div>
+        <button class="btn btn-p btn-sm" onclick="criarUsuario()">+ Criar Usuário</button>
       </div>
     </div>
+  </div>
 
-    <!-- ── PAGE: DASHBOARD ── -->
-    <div class="page-content" id="page-dashboard" style="display:none">
-      <div class="dash-filters">
-        <span class="filter-label">Unidade:</span>
-        <select id="dFiltroUnidade" onchange="renderDash()"><option value="">Todas</option></select>
-        <span class="filter-label">Empresa:</span>
-        <select id="dFiltroParceiro" onchange="renderDash()"><option value="">Todas</option></select>
-        <span class="filter-label">Período:</span>
-        <select id="dFiltroPeriodo" onchange="renderDash()">
-          <option value="">Todo período</option>
-          <option value="30">Últimos 30 dias</option>
-          <option value="90">Últimos 90 dias</option>
-          <option value="180">Últimos 6 meses</option>
-        </select>
-        <button class="btn-refresh" onclick="carregarAuditorias()">↻ Atualizar</button>
-      </div>
-
-      <div class="kpi-grid">
-        <div class="kpi-card"><div class="kpi-emoji">✅</div><div class="kpi-label">Conformidade Geral</div><div class="kpi-value" id="dKpiConf">—</div><div class="kpi-sub">média ponderada</div></div>
-        <div class="kpi-card"><div class="kpi-emoji">📋</div><div class="kpi-label">Auditorias</div><div class="kpi-value" id="dKpiAud">—</div><div class="kpi-sub">no período</div></div>
-        <div class="kpi-card"><div class="kpi-emoji">⚠️</div><div class="kpi-label">Não Conformidades</div><div class="kpi-value" id="dKpiNC">—</div><div class="kpi-sub">abertas</div></div>
-        <div class="kpi-card"><div class="kpi-emoji">🏆</div><div class="kpi-label">Melhor Empresa</div><div class="kpi-value" id="dKpiMelhor" style="font-size:16px;padding-top:8px">—</div><div class="kpi-sub" id="dKpiMelhorSub"></div></div>
-      </div>
-
-      <div class="grid-2">
-        <div class="card"><div class="card-title">% Conformidade por Empresa <span class="card-tag">Meta ≥ 90%</span></div><canvas id="cBarras" height="220"></canvas></div>
-        <div class="card"><div class="card-title">Não Conformidades</div><canvas id="cNC" height="220"></canvas></div>
-      </div>
-      <div class="card"><div class="card-title">Evolução Mensal da Conformidade</div><canvas id="cLinha" height="280"></canvas></div>
-    </div>
-
-    <!-- ── PAGE: REGISTROS ── -->
-    <div class="page-content" id="page-registros" style="display:none">
+  <!-- PAGE: CONFIGURAÇÕES (admin) -->
+  <div class="page" id="page-configuracoes">
+    <div class="cfg-grid">
       <div class="card">
-        <div class="card-title">Registros de Auditoria <span class="card-tag" id="cntReg">0</span></div>
-        <div class="tbl-wrap">
-          <table>
-            <thead><tr><th>Data</th><th>Unidade</th><th>Empresa</th><th>APR</th><th>Local</th><th>Nota</th><th>Conf.</th><th>NC</th></tr></thead>
-            <tbody id="tbodyReg"></tbody>
-          </table>
+        <div class="card-head"><span class="card-title">🏭 Unidades</span></div>
+        <div class="items-list" id="listaUnid"></div>
+        <div class="add-row">
+          <div class="ff"><label>Nome</label><input type="text" id="nUnid" placeholder="Ex: Unidade São Paulo"/></div>
+          <button class="btn btn-p" onclick="addUnidade()">+ Adicionar</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="card-title">🤝 Parceiros por Unidade</span></div>
+        <div class="ff"><label>Selecionar Unidade</label><select id="cfgUnidSel" onchange="renderParcCfg()"><option value="">Selecione...</option></select></div>
+        <div class="items-list" id="listaParcCfg"></div>
+        <div class="add-row" id="addParcRow" style="display:none">
+          <div class="ff"><label>Nome do Parceiro</label><input type="text" id="nParc" placeholder="Ex: Empresa XYZ"/></div>
+          <button class="btn btn-p" onclick="addParceiro()">+ Adicionar</button>
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- ── PAGE: CONFIG ── -->
-    <div class="page-content" id="page-config" style="display:none">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:900px">
-
-        <!-- Unidades -->
-        <div class="card">
-          <div class="config-section">
-            <h3>🏭 Unidades</h3>
-            <div class="items-list" id="listaUnidades"></div>
-            <div class="add-row">
-              <div class="form-field"><label>Nome da Unidade</label><input type="text" id="novaUnidade" placeholder="Ex: Unidade São Paulo"/></div>
-              <button class="btn btn-primary btn-sm" onclick="adicionarUnidade()">+ Adicionar</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Parceiros -->
-        <div class="card">
-          <div class="config-section">
-            <h3>🤝 Empresas Parceiras</h3>
-            <div class="form-field" style="margin-bottom:14px">
-              <label>Selecionar Unidade</label>
-              <select id="cfgUnidadeSel" onchange="renderParceirosConfig()">
-                <option value="">Selecione uma unidade...</option>
-              </select>
-            </div>
-            <div class="items-list" id="listaParceiros"></div>
-            <div class="add-row" id="addParcRow" style="display:none">
-              <div class="form-field"><label>Nome do Parceiro</label><input type="text" id="novoParceiro" placeholder="Ex: Empresa XYZ"/></div>
-              <button class="btn btn-primary btn-sm" onclick="adicionarParceiro()">+ Adicionar</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Usuários -->
-        <div class="card" style="grid-column:1/-1">
-          <div class="config-section">
-            <h3>👥 Usuários / Técnicos</h3>
-            <div class="items-list" id="listaUsuarios"></div>
-            <div class="add-row">
-              <div class="form-field"><label>E-mail</label><input type="email" id="novoEmail" placeholder="tecnico@empresa.com"/></div>
-              <div class="form-field"><label>Senha</label><input type="password" id="novaSenha" placeholder="Mínimo 6 caracteres"/></div>
-              <div class="form-field"><label>Nome</label><input type="text" id="novoNome" placeholder="Nome do técnico"/></div>
-              <button class="btn btn-primary btn-sm" onclick="criarUsuario()">+ Criar</button>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
-  </div><!-- /main -->
+</div><!-- /main -->
 </div><!-- /s-app -->
 
-<!-- TOAST -->
+<!-- MODAL PERGUNTA -->
+<div class="modal-overlay" id="modalPerg">
+<div class="modal">
+  <h3 id="modalPergTitle">Nova Pergunta</h3>
+  <input type="hidden" id="mpId"/>
+  <div class="ff"><label>Texto da Pergunta *</label><input type="text" id="mpTxt" placeholder="Ex: Os riscos foram identificados?"/></div>
+  <div class="ff-grid">
+    <div class="ff"><label>Seção *</label>
+      <select id="mpSec">
+        <option>Identificação da APR</option>
+        <option>Identificação de Riscos</option>
+        <option>Medidas de Controle</option>
+        <option>Qualidade da APR</option>
+        <option>Evidências</option>
+        <option>Desvios</option>
+      </select>
+    </div>
+    <div class="ff"><label>Tipo *</label>
+      <select id="mpTipo">
+        <option value="simnao">Sim / Não</option>
+        <option value="nota">Nota (0–10)</option>
+      </select>
+    </div>
+  </div>
+  <div class="ff-grid">
+    <div class="ff"><label>Peso (1–5)</label><input type="number" id="mpPeso" value="1" min="1" max="5"/></div>
+    <div class="ff"><label>Ordem</label><input type="number" id="mpOrdem" value="1" min="1"/></div>
+  </div>
+  <div class="ff">
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+      <input type="checkbox" id="mpInversa" style="width:auto;margin:0"/>
+      <span>Resposta inversa (Não = correto)</span>
+    </label>
+    <div style="font-size:11px;color:var(--s500);margin-top:4px">Use para perguntas como "Foi copiada?" ou "Existe não conformidade?" onde Não é o resultado positivo.</div>
+  </div>
+  <div class="modal-btns">
+    <button class="btn btn-s" onclick="closeModal('modalPerg')">Cancelar</button>
+    <button class="btn btn-p" onclick="salvarPergunta()">💾 Salvar</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL EDITAR USUARIO -->
+<div class="modal-overlay" id="modalUser">
+<div class="modal">
+  <h3>Editar Perfil do Usuário</h3>
+  <input type="hidden" id="muId"/>
+  <div class="ff"><label>Nome</label><input type="text" id="muNome"/></div>
+  <div class="ff"><label>Perfil</label>
+    <select id="muPerfil">
+      <option value="tecnico">Técnico</option>
+      <option value="gestor">Gestor</option>
+      <option value="admin">Admin</option>
+    </select>
+  </div>
+  <div class="modal-btns">
+    <button class="btn btn-s" onclick="closeModal('modalUser')">Cancelar</button>
+    <button class="btn btn-p" onclick="salvarUser()">💾 Salvar</button>
+  </div>
+</div>
+</div>
+
+<!-- PRINT PREVIEW -->
+<div class="print-preview" id="printView">
+<div class="print-doc" id="printDoc">
+  <div class="print-actions">
+    <button class="btn btn-p btn-sm" onclick="doPrint()">🖨️ Imprimir</button>
+    <button class="btn btn-p btn-sm" onclick="doPDF()">📄 Salvar PDF</button>
+    <button class="btn btn-s btn-sm" onclick="closeModal('printView')">✕ Fechar</button>
+  </div>
+  <div id="printContent"></div>
+</div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
-// ═══════════════════════════════════════════════════════
-// PERGUNTAS DO FORMULÁRIO
-// ═══════════════════════════════════════════════════════
-const PERGUNTAS = {
-  'q-bloco-id': [
-    { id:'q1', texto:'APR possui identificação da atividade?',    peso:1 },
-    { id:'q2', texto:'Data está preenchida na APR?',              peso:1 },
-    { id:'q3', texto:'Equipe está listada?',                      peso:1 },
-  ],
-  'q-bloco-riscos': [
-    { id:'q4', texto:'Riscos foram identificados?',               peso:3 },
-    { id:'q5', texto:'Os riscos são compatíveis com a atividade?',peso:1 },
-  ],
-  'q-bloco-controles': [
-    { id:'q6', texto:'Existem controles para os riscos?',         peso:3 },
-    { id:'q7', texto:'Os controles são específicos (não genéricos)?', peso:1 },
-  ],
-  'q-bloco-qualidade': [
-    { id:'q8',  texto:'APR está clara e legível?',                peso:1 },
-    { id:'q9',  texto:'Foi copiada de outra APR sem adaptação?',  peso:1 },
-    { id:'q10', texto:'Nota geral da APR (0 a 10)', peso:1, tipo:'nota' },
-  ],
-  'q-bloco-evidencias': [
-    { id:'q11', texto:'Registro / evidência fotográfica presente?', peso:1 },
-  ],
-  'q-bloco-desvios': [
-    { id:'q12', texto:'Existe não conformidade identificada?', peso:1 },
-  ],
-};
+// ════════════════════════════════════════════════
+// GLOBALS
+// ════════════════════════════════════════════════
+let db, auth;
+let CU = null; // current user data
+let UNIDADES = [];
+let AUDITORIAS = [];
+let PERGUNTAS = [];
+let RESPOSTAS = {};
+let CHARTS = {};
+const CORES = ['#1B6B2E','#16A34A','#D97706','#1D4ED8','#DC2626','#7C3AED','#0891B2','#DB2777','#059669','#EA580C'];
+const SECOES_ORDER = ['Identificação da APR','Identificação de Riscos','Medidas de Controle','Qualidade da APR','Evidências','Desvios'];
+const PAGE_TITLES = {formulario:'Nova Auditoria',dashboard:'Dashboard',registros:'Registros',perguntas:'Perguntas',usuarios:'Usuários',configuracoes:'Configurações'};
+let filtroSecao = '';
 
-const RESPOSTAS = {};
-const CORES_EMPRESA = ['#1B6B2E','#16A34A','#D97706','#1D4ED8','#DC2626','#7C3AED','#0891B2','#DB2777'];
-
-// ═══════════════════════════════════════════════════════
-// FIREBASE
-// ═══════════════════════════════════════════════════════
-let db, auth, FB_CFG = null;
-
-function salvarFirebaseConfig() {
-  FB_CFG = {
-    apiKey:      document.getElementById('fbApiKey').value.trim(),
-    authDomain:  document.getElementById('fbAuthDomain').value.trim(),
-    projectId:   document.getElementById('fbProjectId').value.trim(),
-    appId:       document.getElementById('fbAppId').value.trim(),
+// ════════════════════════════════════════════════
+// FIREBASE SETUP
+// ════════════════════════════════════════════════
+function salvarFB() {
+  const cfg = {
+    apiKey: document.getElementById('fbKey').value.trim(),
+    authDomain: document.getElementById('fbAuth').value.trim(),
+    projectId: document.getElementById('fbProj').value.trim(),
+    appId: document.getElementById('fbApp').value.trim(),
   };
-  if (!FB_CFG.apiKey || !FB_CFG.projectId) { showToast('Preencha todos os campos','error'); return; }
-  localStorage.setItem('aprFirebaseCfg', JSON.stringify(FB_CFG));
-  initFirebase(FB_CFG);
+  if (!cfg.apiKey || !cfg.projectId) { toast('Preencha todos os campos','err'); return; }
+  localStorage.setItem('aprFB', JSON.stringify(cfg));
+  initFB(cfg);
 }
 
-function initFirebase(cfg) {
+function initFB(cfg) {
   try {
     if (!firebase.apps.length) firebase.initializeApp(cfg);
-    db   = firebase.firestore();
+    db = firebase.firestore();
     auth = firebase.auth();
-    auth.onAuthStateChanged(user => {
-      if (user) {
-        onLogin(user);
-      } else {
-        showScreen('s-login');
-      }
+    auth.onAuthStateChanged(async u => {
+      if (u) await onLogin(u);
+      else showS('s-login');
     });
-    showScreen('s-login');
-  } catch(e) {
-    showToast('Erro ao conectar Firebase: ' + e.message, 'error');
-  }
+  } catch(e) { toast('Erro Firebase: '+e.message,'err'); }
 }
 
-// ═══════════════════════════════════════════════════════
-// INIT
-// ═══════════════════════════════════════════════════════
 window.onload = () => {
-  renderPerguntas();
-  setDefaultDate();
-
-  const saved = localStorage.getItem('aprFirebaseCfg');
-  if (saved) {
-    FB_CFG = JSON.parse(saved);
-    document.getElementById('fbApiKey').value    = FB_CFG.apiKey    || '';
-    document.getElementById('fbAuthDomain').value= FB_CFG.authDomain|| '';
-    document.getElementById('fbProjectId').value = FB_CFG.projectId || '';
-    document.getElementById('fbAppId').value     = FB_CFG.appId     || '';
-    initFirebase(FB_CFG);
-  }
+  document.getElementById('fData').value = new Date().toISOString().split('T')[0];
+  const saved = localStorage.getItem('aprFB');
+  if (saved) { initFB(JSON.parse(saved)); }
 };
 
-function setDefaultDate() {
-  document.getElementById('fData').value = new Date().toISOString().split('T')[0];
-}
-
-// ═══════════════════════════════════════════════════════
+// ════════════════════════════════════════════════
 // AUTH
-// ═══════════════════════════════════════════════════════
+// ════════════════════════════════════════════════
 async function fazerLogin() {
-  const email = document.getElementById('loginEmail').value.trim();
-  const senha = document.getElementById('loginSenha').value;
-  const err = document.getElementById('loginErr');
-  err.style.display = 'none';
+  const email = document.getElementById('lEmail').value.trim();
+  const senha = document.getElementById('lSenha').value;
+  const errEl = document.getElementById('loginErr');
+  errEl.style.display = 'none';
   try {
     await auth.signInWithEmailAndPassword(email, senha);
   } catch(e) {
-    err.textContent = 'E-mail ou senha incorretos.';
-    err.style.display = 'block';
+    errEl.textContent = 'E-mail ou senha incorretos.';
+    errEl.style.display = 'block';
   }
 }
 
-async function onLogin(user) {
-  showScreen('s-app');
-  const initial = (user.displayName || user.email || '?')[0].toUpperCase();
-  document.getElementById('userAvatar').textContent = initial;
-  document.getElementById('userName').textContent   = user.displayName || user.email;
+async function onLogin(u) {
+  // Load user profile
+  const doc = await db.collection('usuarios').doc(u.uid).get();
+  CU = doc.exists ? { uid: u.uid, ...doc.data() } : { uid: u.uid, email: u.email, nome: u.displayName || u.email, perfil: 'tecnico' };
 
-  // Verifica se é admin
-  const adminDoc = await db.collection('config').doc('admins').get();
-  const admins = adminDoc.exists ? (adminDoc.data().emails || []) : [];
-  const isAdmin = admins.includes(user.email);
-  document.getElementById('nav-config').style.display       = isAdmin ? 'flex' : 'none';
-  document.getElementById('nav-config-label').style.display = isAdmin ? 'block' : 'none';
+  // Update UI
+  const av = (CU.nome||CU.email||'?')[0].toUpperCase();
+  document.getElementById('uAv').textContent = av;
+  document.getElementById('uNm').textContent = CU.nome || CU.email;
+  const rBadge = document.getElementById('roleBadge');
+  rBadge.textContent = CU.perfil === 'admin' ? '👑 Admin' : CU.perfil === 'gestor' ? '📊 Gestor' : '🔧 Técnico';
+  rBadge.className = 'badge ' + (CU.perfil==='admin'?'b-admin':CU.perfil==='gestor'?'b-gestor':'b-tec');
 
-  await carregarUnidadesForm();
-  await carregarAuditorias();
+  // Show/hide nav items based on role
+  document.querySelectorAll('[data-role]').forEach(el => {
+    const role = el.getAttribute('data-role');
+    const show = role === 'gestor'
+      ? (CU.perfil === 'gestor' || CU.perfil === 'admin')
+      : CU.perfil === 'admin';
+    el.style.display = show ? (el.tagName==='BUTTON'?'flex':'block') : 'none';
+  });
+
+  showS('s-app');
+  await loadPerguntas();
+  await loadUnidades();
+  await loadAuditorias();
 }
 
-async function fazerLogout() {
-  await auth.signOut();
-}
+async function fazerLogout() { await auth.signOut(); }
 
 async function criarUsuario() {
-  const email = document.getElementById('novoEmail').value.trim();
-  const senha = document.getElementById('novaSenha').value;
-  const nome  = document.getElementById('novoNome').value.trim();
-  if (!email || !senha || !nome) { showToast('Preencha todos os campos','error'); return; }
+  const nome = document.getElementById('uNome').value.trim();
+  const email = document.getElementById('uEmail').value.trim();
+  const senha = document.getElementById('uSenha').value;
+  const perfil = document.getElementById('uPerfil').value;
+  if (!nome||!email||!senha) { toast('Preencha todos os campos','err'); return; }
   try {
+    // Save current user first (creating user logs you out otherwise)
     const cred = await auth.createUserWithEmailAndPassword(email, senha);
     await cred.user.updateProfile({ displayName: nome });
-    await db.collection('usuarios').doc(cred.user.uid).set({ email, nome, criadoEm: new Date() });
-    document.getElementById('novoEmail').value = '';
-    document.getElementById('novaSenha').value = '';
-    document.getElementById('novoNome').value  = '';
-    showToast('Usuário criado com sucesso!', 'success');
-    renderUsuariosConfig();
+    await db.collection('usuarios').doc(cred.user.uid).set({ nome, email, perfil, criadoEm: new Date() });
+    // Re-sign in as current user
+    await auth.signInWithEmailAndPassword(CU.email, '');
+    document.getElementById('uNome').value='';
+    document.getElementById('uEmail').value='';
+    document.getElementById('uSenha').value='';
+    toast('Usuário criado! Ele pode fazer login agora.','ok');
+    await renderUsers();
   } catch(e) {
-    showToast('Erro: ' + e.message, 'error');
+    // Handle case where we can't re-login — just save the data
+    if (e.code !== 'auth/wrong-password') { toast('Erro: '+e.message,'err'); return; }
+    toast('Usuário criado com sucesso!','ok');
+    document.getElementById('uNome').value='';
+    document.getElementById('uEmail').value='';
+    document.getElementById('uSenha').value='';
+    await renderUsers();
   }
 }
 
-// ═══════════════════════════════════════════════════════
-// PERGUNTAS — RENDER
-// ═══════════════════════════════════════════════════════
-function renderPerguntas() {
-  Object.entries(PERGUNTAS).forEach(([blocoId, perguntas]) => {
-    const el = document.getElementById(blocoId);
-    el.innerHTML = perguntas.map(p => {
-      if (p.tipo === 'nota') return renderNota(p);
-      return renderSN(p);
-    }).join('');
-  });
+async function renderUsers() {
+  const snap = await db.collection('usuarios').get();
+  const users = snap.docs.map(d=>({id:d.id,...d.data()}));
+  document.getElementById('listaUsers').innerHTML = users.length ? users.map(u=>`
+    <div class="item-row">
+      <div class="u-av" style="flex-shrink:0">${(u.nome||'?')[0].toUpperCase()}</div>
+      <div style="flex:1">
+        <div class="item-lbl">${u.nome||'—'}</div>
+        <div class="item-sub">${u.email}</div>
+      </div>
+      <span class="badge ${u.perfil==='admin'?'b-admin':u.perfil==='gestor'?'b-gestor':'b-tec'}">${u.perfil}</span>
+      <button class="btn-icon" onclick="openEditUser('${u.id}','${u.nome}','${u.perfil}')">✏️</button>
+    </div>`).join('')
+  : '<div style="font-size:13px;color:var(--s500);padding:8px">Nenhum usuário cadastrado.</div>';
 }
 
-function renderSN(p) {
-  const isHigh = p.peso >= 3;
-  return `<div class="question-block">
-    <div class="q-label">
-      ${p.texto}
-      <span class="q-peso ${isHigh?'high':''}">P${p.peso}</span>
-    </div>
-    <div class="radio-group">
-      <label class="radio-opt" id="opt-sim-${p.id}" onclick="selectOpt('${p.id}','Sim')">
-        <input type="radio" name="${p.id}" value="Sim"> ✅ Sim
-      </label>
-      <label class="radio-opt" id="opt-nao-${p.id}" onclick="selectOpt('${p.id}','Não')">
-        <input type="radio" name="${p.id}" value="Não"> ❌ Não
-      </label>
-    </div>
-  </div>`;
+function openEditUser(id, nome, perfil) {
+  document.getElementById('muId').value = id;
+  document.getElementById('muNome').value = nome;
+  document.getElementById('muPerfil').value = perfil;
+  openModal('modalUser');
 }
 
-function renderNota(p) {
-  return `<div class="question-block">
-    <div class="q-label">${p.texto} <span class="q-peso">P${p.peso}</span></div>
-    <div class="nota-grid">
-      ${[0,1,2,3,4,5,6,7,8,9,10].map(n =>
-        `<button class="nota-btn" id="nota-btn-${n}" onclick="selectNota(${n})">${n}</button>`
-      ).join('')}
-    </div>
-  </div>`;
+async function salvarUser() {
+  const id = document.getElementById('muId').value;
+  const nome = document.getElementById('muNome').value.trim();
+  const perfil = document.getElementById('muPerfil').value;
+  await db.collection('usuarios').doc(id).update({ nome, perfil });
+  closeModal('modalUser');
+  toast('Usuário atualizado!','ok');
+  await renderUsers();
 }
 
-function selectOpt(qId, val) {
-  RESPOSTAS[qId] = val;
-  const sim = document.getElementById(`opt-sim-${qId}`);
-  const nao = document.getElementById(`opt-nao-${qId}`);
-  sim.className = 'radio-opt' + (val==='Sim'?' selected-sim':'');
-  nao.className = 'radio-opt' + (val==='Não'?' selected-nao':'');
-}
-
-let notaSelecionada = null;
-function selectNota(n) {
-  notaSelecionada = n;
-  document.querySelectorAll('.nota-btn').forEach(b => b.classList.remove('selected'));
-  document.getElementById(`nota-btn-${n}`).classList.add('selected');
-  RESPOSTAS['q10'] = n;
-}
-
-// ═══════════════════════════════════════════════════════
+// ════════════════════════════════════════════════
 // UNIDADES & PARCEIROS
-// ═══════════════════════════════════════════════════════
-let unidades = [], parceiros = {};
-
-async function carregarUnidadesForm() {
+// ════════════════════════════════════════════════
+async function loadUnidades() {
   const snap = await db.collection('unidades').orderBy('nome').get();
-  unidades = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  UNIDADES = snap.docs.map(d=>({id:d.id,...d.data()}));
 
-  const sel = document.getElementById('fUnidade');
-  sel.innerHTML = '<option value="">Selecione a unidade...</option>';
-  unidades.forEach(u => {
-    const opt = document.createElement('option');
-    opt.value = u.id; opt.textContent = u.nome;
-    sel.appendChild(opt);
-  });
-
-  // Filtro do dashboard
-  const dSel = document.getElementById('dFiltroUnidade');
-  dSel.innerHTML = '<option value="">Todas</option>';
-  unidades.forEach(u => {
-    const opt = document.createElement('option');
-    opt.value = u.id; opt.textContent = u.nome;
-    dSel.appendChild(opt);
+  ['fUnid','dUnid','rUnid','cfgUnidSel'].forEach(id=>{
+    const el = document.getElementById(id);
+    if (!el) return;
+    const first = el.options[0].cloneNode(true);
+    el.innerHTML='';
+    el.appendChild(first);
+    UNIDADES.forEach(u=>{ const o=document.createElement('option'); o.value=u.id; o.textContent=u.nome; el.appendChild(o); });
   });
 }
 
-async function carregarParceiros() {
-  const unidadeId = document.getElementById('fUnidade').value;
-  const sel = document.getElementById('fParceiro');
-  sel.innerHTML = '<option value="">Carregando...</option>';
-  if (!unidadeId) { sel.innerHTML = '<option value="">Selecione a unidade primeiro...</option>'; return; }
+async function loadParceiros() {
+  const uid = document.getElementById('fUnid').value;
+  const sel = document.getElementById('fParc');
+  sel.innerHTML='<option value="">Carregando...</option>';
+  if (!uid) { sel.innerHTML='<option value="">Selecione a unidade primeiro...</option>'; return; }
+  const snap = await db.collection('unidades').doc(uid).collection('parceiros').orderBy('nome').get();
+  sel.innerHTML='<option value="">Selecione o parceiro...</option>';
+  snap.docs.forEach(d=>{ const o=document.createElement('option'); o.value=d.data().nome; o.textContent=d.data().nome; sel.appendChild(o); });
+  // Update dash filter
+  const dParc = document.getElementById('dParc');
+  dParc.innerHTML='<option value="">Todas</option>';
+  snap.docs.forEach(d=>{ const o=document.createElement('option'); o.value=d.data().nome; o.textContent=d.data().nome; dParc.appendChild(o); });
+}
 
-  const snap = await db.collection('unidades').doc(unidadeId).collection('parceiros').orderBy('nome').get();
-  parceiros[unidadeId] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+async function renderUnidadesCfg() {
+  const snap = await db.collection('unidades').orderBy('nome').get();
+  UNIDADES = snap.docs.map(d=>({id:d.id,...d.data()}));
+  document.getElementById('listaUnid').innerHTML = UNIDADES.length
+    ? UNIDADES.map(u=>`<div class="item-row"><div class="item-lbl">${u.nome}</div><button class="btn-icon del" onclick="delUnidade('${u.id}')">🗑</button></div>`).join('')
+    : '<div style="font-size:13px;color:var(--s500)">Nenhuma unidade.</div>';
+  const sel = document.getElementById('cfgUnidSel');
+  sel.innerHTML='<option value="">Selecione...</option>';
+  UNIDADES.forEach(u=>{ const o=document.createElement('option'); o.value=u.id; o.textContent=u.nome; sel.appendChild(o); });
+  await loadUnidades();
+}
 
-  sel.innerHTML = '<option value="">Selecione o parceiro...</option>';
-  parceiros[unidadeId].forEach(p => {
-    const opt = document.createElement('option');
-    opt.value = p.nome; opt.textContent = p.nome;
-    sel.appendChild(opt);
+async function addUnidade() {
+  const nome = document.getElementById('nUnid').value.trim();
+  if (!nome) { toast('Digite o nome','err'); return; }
+  await db.collection('unidades').add({ nome, criadoEm: new Date() });
+  document.getElementById('nUnid').value='';
+  toast('Unidade adicionada!','ok');
+  await renderUnidadesCfg();
+}
+
+async function delUnidade(id) {
+  if (!confirm('Excluir unidade e todos os parceiros vinculados?')) return;
+  const snap = await db.collection('unidades').doc(id).collection('parceiros').get();
+  const batch = db.batch();
+  snap.docs.forEach(d=>batch.delete(d.ref));
+  batch.delete(db.collection('unidades').doc(id));
+  await batch.commit();
+  toast('Excluída','ok');
+  await renderUnidadesCfg();
+}
+
+async function renderParcCfg() {
+  const uid = document.getElementById('cfgUnidSel').value;
+  const lista = document.getElementById('listaParcCfg');
+  const row = document.getElementById('addParcRow');
+  if (!uid) { lista.innerHTML=''; row.style.display='none'; return; }
+  const snap = await db.collection('unidades').doc(uid).collection('parceiros').orderBy('nome').get();
+  lista.innerHTML = snap.docs.length
+    ? snap.docs.map(d=>`<div class="item-row"><div class="item-lbl">${d.data().nome}</div><button class="btn-icon del" onclick="delParceiro('${uid}','${d.id}')">🗑</button></div>`).join('')
+    : '<div style="font-size:13px;color:var(--s500)">Nenhum parceiro.</div>';
+  row.style.display='flex';
+}
+
+async function addParceiro() {
+  const uid = document.getElementById('cfgUnidSel').value;
+  const nome = document.getElementById('nParc').value.trim();
+  if (!uid||!nome) { toast('Selecione a unidade e digite o nome','err'); return; }
+  await db.collection('unidades').doc(uid).collection('parceiros').add({ nome, criadoEm: new Date() });
+  document.getElementById('nParc').value='';
+  toast('Parceiro adicionado!','ok');
+  await renderParcCfg();
+  await loadUnidades();
+}
+
+async function delParceiro(uid, pid) {
+  if (!confirm('Excluir este parceiro?')) return;
+  await db.collection('unidades').doc(uid).collection('parceiros').doc(pid).delete();
+  toast('Excluído','ok');
+  await renderParcCfg();
+}
+
+// ════════════════════════════════════════════════
+// PERGUNTAS
+// ════════════════════════════════════════════════
+async function loadPerguntas() {
+  const snap = await db.collection('perguntas').orderBy('secao').orderBy('ordem').get();
+  PERGUNTAS = snap.docs.map(d=>({id:d.id,...d.data()}));
+  // Se não tiver perguntas, cria as padrões
+  if (!PERGUNTAS.length) await seedPerguntas();
+  renderFormPerguntas();
+}
+
+async function seedPerguntas() {
+  const defaults = [
+    {secao:'Identificação da APR',ordem:1,texto:'APR possui identificação da atividade?',tipo:'simnao',peso:1,inversa:false},
+    {secao:'Identificação da APR',ordem:2,texto:'Data está preenchida na APR?',tipo:'simnao',peso:1,inversa:false},
+    {secao:'Identificação da APR',ordem:3,texto:'Equipe está listada?',tipo:'simnao',peso:1,inversa:false},
+    {secao:'Identificação de Riscos',ordem:1,texto:'Riscos foram identificados?',tipo:'simnao',peso:3,inversa:false},
+    {secao:'Identificação de Riscos',ordem:2,texto:'Os riscos são compatíveis com a atividade?',tipo:'simnao',peso:1,inversa:false},
+    {secao:'Medidas de Controle',ordem:1,texto:'Existem controles para os riscos?',tipo:'simnao',peso:3,inversa:false},
+    {secao:'Medidas de Controle',ordem:2,texto:'Os controles são específicos (não genéricos)?',tipo:'simnao',peso:1,inversa:false},
+    {secao:'Qualidade da APR',ordem:1,texto:'APR está clara e legível?',tipo:'simnao',peso:1,inversa:false},
+    {secao:'Qualidade da APR',ordem:2,texto:'Foi copiada de outra APR sem adaptação?',tipo:'simnao',peso:1,inversa:true},
+    {secao:'Qualidade da APR',ordem:3,texto:'Nota geral da APR (0 a 10)',tipo:'nota',peso:1,inversa:false},
+    {secao:'Evidências',ordem:1,texto:'Registro / evidência fotográfica presente?',tipo:'simnao',peso:1,inversa:false},
+    {secao:'Desvios',ordem:1,texto:'Existe não conformidade identificada?',tipo:'simnao',peso:1,inversa:true},
+  ];
+  const batch = db.batch();
+  defaults.forEach(p=>{ const ref=db.collection('perguntas').doc(); batch.set(ref,{...p,criadoEm:new Date()}); });
+  await batch.commit();
+  const snap = await db.collection('perguntas').orderBy('secao').orderBy('ordem').get();
+  PERGUNTAS = snap.docs.map(d=>({id:d.id,...d.data()}));
+}
+
+function renderFormPerguntas() {
+  const container = document.getElementById('form-perguntas');
+  if (!PERGUNTAS.length) { container.innerHTML='<div class="empty"><div class="empty-ico">❓</div><div class="empty-txt">Nenhuma pergunta configurada.</div></div>'; return; }
+  let html='';
+  SECOES_ORDER.forEach(sec=>{
+    const pergs = PERGUNTAS.filter(p=>p.secao===sec);
+    if (!pergs.length) return;
+    const isDesvio = sec==='Desvios';
+    html+=`<div class="sec-hdr${isDesvio?' red':''}">${SECOES_ORDER.indexOf(sec)+2}. ${sec}</div>`;
+    pergs.forEach(p=>{
+      if (p.tipo==='nota') {
+        html+=`<div class="qblock"><div class="q-lbl">${p.texto} <span class="q-peso">P${p.peso}</span></div>
+          <div class="nota-grid">${[0,1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="nb2" id="nb-${p.id}-${n}" onclick="selNota('${p.id}',${n})">${n}</button>`).join('')}</div></div>`;
+      } else {
+        html+=`<div class="qblock"><div class="q-lbl">${p.texto} <span class="q-peso${p.peso>=3?' hi':''}">P${p.peso}</span></div>
+          <div class="rg">
+            <label class="ro" id="ro-sim-${p.id}" onclick="selOpt('${p.id}','Sim')"><input type="radio" name="${p.id}" value="Sim"> ✅ Sim</label>
+            <label class="ro" id="ro-nao-${p.id}" onclick="selOpt('${p.id}','Não')"><input type="radio" name="${p.id}" value="Não"> ❌ Não</label>
+          </div></div>`;
+      }
+    });
   });
+  container.innerHTML = html;
+}
 
-  // Atualiza filtro do dash
-  const dSel = document.getElementById('dFiltroParceiro');
-  dSel.innerHTML = '<option value="">Todas</option>';
-  parceiros[unidadeId].forEach(p => {
-    const opt = document.createElement('option');
-    opt.value = p.nome; opt.textContent = p.nome;
-    dSel.appendChild(opt);
+function selOpt(qid, val) {
+  RESPOSTAS[qid]=val;
+  document.getElementById(`ro-sim-${qid}`).className='ro'+(val==='Sim'?' sim':'');
+  document.getElementById(`ro-nao-${qid}`).className='ro'+(val==='Não'?' nao':'');
+}
+
+function selNota(qid, n) {
+  RESPOSTAS[qid]=n;
+  PERGUNTAS.filter(p=>p.id===qid).forEach(()=>{
+    document.querySelectorAll(`[id^="nb-${qid}-"]`).forEach(b=>b.classList.remove('sel'));
+    const btn=document.getElementById(`nb-${qid}-${n}`);
+    if(btn) btn.classList.add('sel');
   });
 }
 
-// ═══════════════════════════════════════════════════════
-// ENVIO DA AUDITORIA
-// ═══════════════════════════════════════════════════════
-async function enviarAuditoria() {
-  const unidadeId  = document.getElementById('fUnidade').value;
-  const parceiro   = document.getElementById('fParceiro').value;
-  const data       = document.getElementById('fData').value;
-  const numeroAPR  = document.getElementById('fNumeroAPR').value.trim();
-  const local      = document.getElementById('fLocal').value.trim();
-  const comentarios= document.getElementById('fComentarios').value.trim();
+// Gerenciar perguntas (admin/gestor)
+function filterSecao(sec, btn) {
+  filtroSecao = sec;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  renderPerguntasConfig();
+}
 
-  // Validações
-  if (!unidadeId || !parceiro || !data || !numeroAPR || !local) {
-    showToast('Preencha todos os campos obrigatórios (*)', 'error'); return;
+function renderPerguntasConfig() {
+  const lista = document.getElementById('listaPerg');
+  const filtered = filtroSecao ? PERGUNTAS.filter(p=>p.secao===filtroSecao) : PERGUNTAS;
+  if (!filtered.length) {
+    lista.innerHTML='<div class="empty"><div class="empty-ico">❓</div><div class="empty-txt">Nenhuma pergunta nesta seção.</div></div>';
+    return;
   }
-
-  const todasPerguntas = Object.values(PERGUNTAS).flat();
-  for (const p of todasPerguntas) {
-    if (RESPOSTAS[p.id] === undefined) {
-      showToast(`Responda: ${p.texto}`, 'error'); return;
+  // Group by section
+  let html='';
+  let lastSec='';
+  filtered.forEach(p=>{
+    if (!filtroSecao && p.secao!==lastSec) {
+      html+=`<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--g700);padding:14px 0 6px;border-top:2px solid var(--g100);margin-top:4px">${p.secao}</div>`;
+      lastSec=p.secao;
     }
-  }
-
-  const unidadeNome = unidades.find(u => u.id === unidadeId)?.nome || unidadeId;
-  const user = auth.currentUser;
-
-  // Calcular conformidade ponderada
-  let pontosObtidos = 0, pontosMaximos = 0;
-  todasPerguntas.forEach(p => {
-    if (p.tipo === 'nota') return;
-    const isNegativa = (p.id === 'q9' || p.id === 'q12'); // "foi copiada" e "existe NC" são inversas
-    const resp = RESPOSTAS[p.id];
-    pontosMaximos += p.peso;
-    const acertou = isNegativa ? resp === 'Não' : resp === 'Sim';
-    if (acertou) pontosObtidos += p.peso;
+    html+=`<div class="pq-row">
+      <span class="pq-drag">⠿</span>
+      <div class="pq-body">
+        <div class="pq-txt">${p.texto}</div>
+        <div class="pq-meta">
+          <span>${p.tipo==='nota'?'📊 Nota':'🔘 Sim/Não'}</span>
+          <span class="pq-peso-tag${p.peso>=3?' hi'}">Peso ${p.peso}</span>
+          <span>${p.secao}</span>
+          ${p.inversa?'<span style="color:var(--yel)">⚠ Inversa</span>':''}
+        </div>
+      </div>
+      <button class="btn-icon" onclick="openModalPergunta('${p.id}')">✏️</button>
+      <button class="btn-icon del" onclick="delPergunta('${p.id}')">🗑</button>
+    </div>`;
   });
-  const conformidade = Math.round((pontosObtidos / pontosMaximos) * 100);
+  lista.innerHTML=html;
+}
 
-  const doc = {
-    unidadeId, unidadeNome, parceiro, data, numeroAPR, local, comentarios,
-    respostas: { ...RESPOSTAS },
-    nota: RESPOSTAS['q10'] ?? null,
-    conformidade,
-    naoConformidade: RESPOSTAS['q12'] === 'Sim',
-    tecnico: { uid: user.uid, nome: user.displayName || user.email, email: user.email },
-    criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+function openModalPergunta(id) {
+  document.getElementById('modalPergTitle').textContent = id ? 'Editar Pergunta' : 'Nova Pergunta';
+  document.getElementById('mpId').value = id||'';
+  if (id) {
+    const p = PERGUNTAS.find(x=>x.id===id);
+    if (!p) return;
+    document.getElementById('mpTxt').value=p.texto||'';
+    document.getElementById('mpSec').value=p.secao||'Identificação da APR';
+    document.getElementById('mpTipo').value=p.tipo||'simnao';
+    document.getElementById('mpPeso').value=p.peso||1;
+    document.getElementById('mpOrdem').value=p.ordem||1;
+    document.getElementById('mpInversa').checked=!!p.inversa;
+  } else {
+    document.getElementById('mpTxt').value='';
+    document.getElementById('mpSec').value='Identificação da APR';
+    document.getElementById('mpTipo').value='simnao';
+    document.getElementById('mpPeso').value=1;
+    document.getElementById('mpOrdem').value=1;
+    document.getElementById('mpInversa').checked=false;
+  }
+  openModal('modalPerg');
+}
+
+async function salvarPergunta() {
+  const id=document.getElementById('mpId').value;
+  const data={
+    texto:document.getElementById('mpTxt').value.trim(),
+    secao:document.getElementById('mpSec').value,
+    tipo:document.getElementById('mpTipo').value,
+    peso:parseInt(document.getElementById('mpPeso').value)||1,
+    ordem:parseInt(document.getElementById('mpOrdem').value)||1,
+    inversa:document.getElementById('mpInversa').checked,
   };
+  if (!data.texto) { toast('Digite o texto da pergunta','err'); return; }
+  if (id) await db.collection('perguntas').doc(id).update(data);
+  else await db.collection('perguntas').add({...data,criadoEm:new Date()});
+  closeModal('modalPerg');
+  toast(id?'Pergunta atualizada!':'Pergunta criada!','ok');
+  await loadPerguntas();
+  renderPerguntasConfig();
+}
 
+async function delPergunta(id) {
+  if (!confirm('Excluir esta pergunta?')) return;
+  await db.collection('perguntas').doc(id).delete();
+  toast('Excluída','ok');
+  await loadPerguntas();
+  renderPerguntasConfig();
+}
+
+// ════════════════════════════════════════════════
+// FORMULÁRIO — ENVIO
+// ════════════════════════════════════════════════
+async function enviarAuditoria() {
+  const unidadeId=document.getElementById('fUnid').value;
+  const parceiro=document.getElementById('fParc').value;
+  const data=document.getElementById('fData').value;
+  const apr=document.getElementById('fAPR').value.trim();
+  const local=document.getElementById('fLocal').value.trim();
+  const coment=document.getElementById('fComent').value.trim();
+  if (!unidadeId||!parceiro||!data||!apr||!local) { toast('Preencha todos os campos obrigatórios (*)','err'); return; }
+  for (const p of PERGUNTAS) {
+    if (RESPOSTAS[p.id]===undefined) { toast(`Responda: ${p.texto}`,'err'); return; }
+  }
+  const unidadeNome=UNIDADES.find(u=>u.id===unidadeId)?.nome||unidadeId;
+  // Calcular conformidade ponderada
+  let obtidos=0, maximos=0;
+  PERGUNTAS.forEach(p=>{
+    if (p.tipo==='nota') return;
+    maximos+=p.peso;
+    const acertou=p.inversa ? RESPOSTAS[p.id]==='Não' : RESPOSTAS[p.id]==='Sim';
+    if (acertou) obtidos+=p.peso;
+  });
+  const conformidade=maximos>0 ? Math.round((obtidos/maximos)*100) : 0;
+  const isNC = PERGUNTAS.some(p=>p.inversa && p.secao==='Desvios' && RESPOSTAS[p.id]==='Sim')
+    || PERGUNTAS.some(p=>!p.inversa && p.secao==='Desvios' && RESPOSTAS[p.id]==='Não');
+
+  const doc={
+    unidadeId,unidadeNome,parceiro,data,apr,local,coment,
+    respostas:{...RESPOSTAS},
+    conformidade,naoConformidade:isNC,
+    nota:PERGUNTAS.find(p=>p.tipo==='nota') ? (RESPOSTAS[PERGUNTAS.find(p=>p.tipo==='nota').id]??null) : null,
+    tecnico:{uid:CU.uid,nome:CU.nome||CU.email,email:CU.email},
+    criadoEm:firebase.firestore.FieldValue.serverTimestamp(),
+  };
   try {
     await db.collection('auditorias').add(doc);
-    showToast('Auditoria enviada com sucesso! ✅', 'success');
+    toast('Auditoria enviada com sucesso! ✅','ok');
     resetForm();
-    await carregarAuditorias();
-  } catch(e) {
-    showToast('Erro ao enviar: ' + e.message, 'error');
-  }
+    await loadAuditorias();
+  } catch(e) { toast('Erro: '+e.message,'err'); }
 }
 
 function resetForm() {
-  document.getElementById('fUnidade').value = '';
-  document.getElementById('fParceiro').innerHTML = '<option value="">Selecione a unidade primeiro...</option>';
-  document.getElementById('fNumeroAPR').value = '';
-  document.getElementById('fLocal').value = '';
-  document.getElementById('fComentarios').value = '';
-  setDefaultDate();
-  Object.keys(RESPOSTAS).forEach(k => delete RESPOSTAS[k]);
-  notaSelecionada = null;
-  document.querySelectorAll('.radio-opt').forEach(el => el.className = 'radio-opt');
-  document.querySelectorAll('.nota-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('fUnid').value='';
+  document.getElementById('fParc').innerHTML='<option value="">Selecione a unidade primeiro...</option>';
+  document.getElementById('fAPR').value='';
+  document.getElementById('fLocal').value='';
+  document.getElementById('fComent').value='';
+  document.getElementById('fData').value=new Date().toISOString().split('T')[0];
+  RESPOSTAS={};
+  document.querySelectorAll('.ro').forEach(el=>el.className='ro');
+  document.querySelectorAll('.nb2').forEach(b=>b.classList.remove('sel'));
 }
 
-// ═══════════════════════════════════════════════════════
-// DASHBOARD & REGISTROS
-// ═══════════════════════════════════════════════════════
-let AUDITORIAS = [];
-let CHARTS = {};
-
-async function carregarAuditorias() {
+// ════════════════════════════════════════════════
+// AUDITORIAS — LOAD & FILTER
+// ════════════════════════════════════════════════
+async function loadAuditorias() {
   try {
-    const snap = await db.collection('auditorias').orderBy('criadoEm','desc').limit(500).get();
-    AUDITORIAS = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const snap=await db.collection('auditorias').orderBy('criadoEm','desc').limit(500).get();
+    AUDITORIAS=snap.docs.map(d=>({id:d.id,...d.data()}));
     renderDash();
-    renderRegistros();
-  } catch(e) { console.warn(e); }
+    renderReg();
+  } catch(e){ console.warn(e); }
 }
 
-function getFiltradas() {
-  const unidade = document.getElementById('dFiltroUnidade')?.value || '';
-  const parceiro= document.getElementById('dFiltroParceiro')?.value || '';
-  const dias    = parseInt(document.getElementById('dFiltroPeriodo')?.value) || 0;
-  const cutoff  = dias ? new Date(Date.now() - dias*864e5) : null;
-
-  return AUDITORIAS.filter(a => {
-    if (unidade && a.unidadeId !== unidade) return false;
-    if (parceiro && a.parceiro !== parceiro) return false;
-    if (cutoff) {
-      const d = a.data ? new Date(a.data) : null;
-      if (!d || d < cutoff) return false;
-    }
+function getFilt(unidSel,parcSel,perSel,ncSel) {
+  const cutoff=perSel?new Date(Date.now()-parseInt(perSel)*864e5):null;
+  return AUDITORIAS.filter(a=>{
+    if(unidSel && a.unidadeId!==unidSel) return false;
+    if(parcSel && a.parceiro!==parcSel) return false;
+    if(ncSel==='nc' && !a.naoConformidade) return false;
+    if(ncSel==='ok' && a.naoConformidade) return false;
+    if(cutoff && a.data && new Date(a.data)<cutoff) return false;
     return true;
   });
 }
 
-function corConf(v) { return v>=90?'#16A34A':v>=75?'#D97706':'#DC2626'; }
-function kc(id) { if(CHARTS[id]){ CHARTS[id].destroy(); delete CHARTS[id]; } }
+// ════════════════════════════════════════════════
+// DASHBOARD
+// ════════════════════════════════════════════════
+function corConf(v){return v>=90?'#16A34A':v>=75?'#D97706':'#DC2626'}
+function kc(id){if(CHARTS[id]){CHARTS[id].destroy();delete CHARTS[id]}}
 
 function renderDash() {
-  const dados = getFiltradas();
+  const dados=getFilt(
+    document.getElementById('dUnid').value,
+    document.getElementById('dParc').value,
+    document.getElementById('dPer').value,'');
 
-  // KPIs
-  const parcMap = {};
-  dados.forEach(a => {
-    if (!parcMap[a.parceiro]) parcMap[a.parceiro] = { total:0, nc:0, conf:[] };
-    parcMap[a.parceiro].total++;
-    if (a.naoConformidade) parcMap[a.parceiro].nc++;
-    if (a.conformidade != null) parcMap[a.parceiro].conf.push(a.conformidade);
+  const pm={};
+  dados.forEach(a=>{
+    if(!pm[a.parceiro])pm[a.parceiro]={total:0,nc:0,conf:[],notas:[]};
+    pm[a.parceiro].total++;
+    if(a.naoConformidade)pm[a.parceiro].nc++;
+    if(a.conformidade!=null)pm[a.parceiro].conf.push(a.conformidade);
+    if(a.nota!=null)pm[a.parceiro].notas.push(+a.nota);
   });
+  const emps=Object.keys(pm);
+  const cm={};
+  emps.forEach(e=>{const cs=pm[e].conf;cm[e]=cs.length?Math.round(cs.reduce((a,b)=>a+b,0)/cs.length):0;});
+  const media=emps.length?Math.round(emps.reduce((s,e)=>s+cm[e],0)/emps.length):0;
+  const totalNC=dados.filter(a=>a.naoConformidade).length;
+  const melhor=[...emps].sort((a,b)=>cm[b]-cm[a])[0];
 
-  const emps = Object.keys(parcMap);
-  const confMed = {};
-  emps.forEach(e => {
-    const cs = parcMap[e].conf;
-    confMed[e] = cs.length ? Math.round(cs.reduce((a,b)=>a+b,0)/cs.length) : 0;
-  });
+  document.getElementById('kConf').textContent=dados.length?media+'%':'—';
+  document.getElementById('kAud').textContent=dados.length;
+  document.getElementById('kNC').textContent=totalNC;
+  document.getElementById('kMel').textContent=melhor||'—';
+  document.getElementById('kMelSub').textContent=melhor?cm[melhor]+'% conformidade':'';
 
-  const media   = emps.length ? Math.round(emps.reduce((s,e)=>s+confMed[e],0)/emps.length) : 0;
-  const totalNC = dados.filter(a=>a.naoConformidade).length;
-  const melhor  = [...emps].sort((a,b)=>confMed[b]-confMed[a])[0];
-
-  document.getElementById('dKpiConf').textContent    = dados.length ? media+'%' : '—';
-  document.getElementById('dKpiAud').textContent     = dados.length;
-  document.getElementById('dKpiNC').textContent      = totalNC;
-  document.getElementById('dKpiMelhor').textContent  = melhor || '—';
-  document.getElementById('dKpiMelhorSub').textContent = melhor ? confMed[melhor]+'% conformidade' : '';
-
-  // Gráfico barras
+  // Bar chart
   kc('b');
-  if (emps.length) {
-    CHARTS['b'] = new Chart(document.getElementById('cBarras').getContext('2d'), {
-      type:'bar',
-      data:{ labels:emps, datasets:[{
-        data:emps.map(e=>confMed[e]),
-        backgroundColor:emps.map(e=>corConf(confMed[e])+'CC'),
-        borderColor:emps.map(e=>corConf(confMed[e])),
-        borderWidth:2, borderRadius:8
-      }]},
-      options:{ plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.raw}%`}}},
-        scales:{ y:{min:0,max:100,grid:{color:'#F1F5F9'},ticks:{callback:v=>v+'%',font:{family:'Outfit',size:12}}},
-                 x:{grid:{display:false},ticks:{font:{family:'Outfit',size:12}}} }, animation:{duration:700} }
-    });
-  }
+  if(emps.length){CHARTS['b']=new Chart(document.getElementById('cBar').getContext('2d'),{
+    type:'bar',data:{labels:emps,datasets:[{data:emps.map(e=>cm[e]),backgroundColor:emps.map(e=>corConf(cm[e])+'CC'),borderColor:emps.map(e=>corConf(cm[e])),borderWidth:2,borderRadius:8}]},
+    options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.raw}%`}}},scales:{y:{min:0,max:100,grid:{color:'#F1F5F9'},ticks:{callback:v=>v+'%',font:{family:'Outfit',size:12}}},x:{grid:{display:false},ticks:{font:{family:'Outfit',size:12}}}},animation:{duration:600}}
+  });}
 
-  // Gráfico rosca NC
+  // Donut NC
   kc('nc');
-  if (emps.length) {
-    CHARTS['nc'] = new Chart(document.getElementById('cNC').getContext('2d'), {
-      type:'doughnut',
-      data:{ labels:emps, datasets:[{
-        data:emps.map(e=>parcMap[e].nc||0),
-        backgroundColor:CORES_EMPRESA.slice(0,emps.length),
-        borderWidth:3, borderColor:'#fff'
-      }]},
-      options:{ plugins:{ legend:{position:'bottom',labels:{font:{family:'Outfit',size:11},padding:10}},
-        tooltip:{callbacks:{label:c=>` ${c.label}: ${c.raw} NC`}} }, animation:{duration:700} }
-    });
-  }
+  if(emps.length){CHARTS['nc']=new Chart(document.getElementById('cNC').getContext('2d'),{
+    type:'doughnut',data:{labels:emps,datasets:[{data:emps.map(e=>pm[e].nc||0),backgroundColor:CORES.slice(0,emps.length),borderWidth:3,borderColor:'#fff'}]},
+    options:{plugins:{legend:{position:'bottom',labels:{font:{family:'Outfit',size:11},padding:10}},tooltip:{callbacks:{label:c=>` ${c.label}: ${c.raw} NC`}}},animation:{duration:600}}
+  });}
 
-  // Gráfico linha — evolução mensal
+  // Line chart
   kc('l');
-  const meses = {};
-  dados.forEach(a => {
-    if (!a.data) return;
-    const d   = new Date(a.data);
-    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    const lbl = d.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'});
-    if (!meses[key]) meses[key] = { lbl, emps:{} };
-    if (!meses[key].emps[a.parceiro]) meses[key].emps[a.parceiro] = [];
-    if (a.conformidade != null) meses[key].emps[a.parceiro].push(a.conformidade);
+  const meses={};
+  dados.forEach(a=>{
+    if(!a.data)return;
+    const d=new Date(a.data);
+    const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    const lbl=d.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'});
+    if(!meses[k])meses[k]={lbl,d:{}};
+    if(!meses[k].d[a.parceiro])meses[k].d[a.parceiro]=[];
+    if(a.conformidade!=null)meses[k].d[a.parceiro].push(a.conformidade);
   });
-  const keys = Object.keys(meses).sort();
-  if (keys.length) {
-    CHARTS['l'] = new Chart(document.getElementById('cLinha').getContext('2d'), {
-      type:'line',
-      data:{ labels:keys.map(k=>meses[k].lbl), datasets:emps.map((emp,i)=>({
-        label:emp, borderColor:CORES_EMPRESA[i%CORES_EMPRESA.length],
-        backgroundColor:CORES_EMPRESA[i%CORES_EMPRESA.length]+'18',
-        pointBackgroundColor:CORES_EMPRESA[i%CORES_EMPRESA.length],
-        borderWidth:2.5, pointRadius:4, tension:0.3, spanGaps:true,
-        data:keys.map(k=>{ const cs=meses[k].emps[emp]; return cs&&cs.length?Math.round(cs.reduce((a,b)=>a+b,0)/cs.length):null; })
-      }))},
-      options:{ plugins:{legend:{position:'bottom',labels:{font:{family:'Outfit',size:11},padding:12}},
-        tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${c.raw}%`}}},
-        scales:{ y:{min:0,max:100,grid:{color:'#F1F5F9'},ticks:{callback:v=>v+'%',font:{family:'Outfit',size:12}}},
-                 x:{grid:{display:false},ticks:{font:{family:'Outfit',size:12}}} }, animation:{duration:700} }
-    });
-  }
+  const keys=Object.keys(meses).sort();
+  if(keys.length){CHARTS['l']=new Chart(document.getElementById('cLin').getContext('2d'),{
+    type:'line',
+    data:{labels:keys.map(k=>meses[k].lbl),datasets:emps.map((e,i)=>({
+      label:e,borderColor:CORES[i%CORES.length],backgroundColor:CORES[i%CORES.length]+'18',
+      pointBackgroundColor:CORES[i%CORES.length],borderWidth:2.5,pointRadius:4,tension:0.3,spanGaps:true,
+      data:keys.map(k=>{const cs=meses[k].d[e];return cs&&cs.length?Math.round(cs.reduce((a,b)=>a+b,0)/cs.length):null;})
+    }))},
+    options:{plugins:{legend:{position:'bottom',labels:{font:{family:'Outfit',size:11},padding:12}},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${c.raw}%`}}},
+      scales:{y:{min:0,max:100,grid:{color:'#F1F5F9'},ticks:{callback:v=>v+'%',font:{family:'Outfit',size:12}}},x:{grid:{display:false},ticks:{font:{family:'Outfit',size:12}}}},animation:{duration:600}}
+  });}
+
+  // Ranking
+  const sorted=[...emps].sort((a,b)=>cm[b]-cm[a]);
+  const medals=['🥇','🥈','🥉'];
+  document.getElementById('rankList').innerHTML=sorted.map((e,i)=>{
+    const c=cm[e],nc=pm[e].nc,cor=corConf(c);
+    return`<div class="rank-row"><div class="rank-medal">${medals[i]||(i+1)+'º'}</div>
+      <div class="rank-body"><div class="rank-name">${e} <span class="badge ${nc>0?'b-nc':'b-ok'}">${nc} NC</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><div class="rank-bg" style="flex:1"><div class="rank-bar" style="width:${c}%;background:${cor}"></div></div>
+        <span class="rank-pct" style="color:${cor}">${c}%</span></div></div></div>`;
+  }).join('')||'<div class="empty"><div class="empty-ico">📭</div><div class="empty-txt">Sem dados</div></div>';
+
+  // Nota media
+  kc('nota');
+  if(emps.length){CHARTS['nota']=new Chart(document.getElementById('cNota').getContext('2d'),{
+    type:'bar',data:{labels:emps,datasets:[{
+      data:emps.map(e=>{const ns=pm[e].notas;return ns.length?+(ns.reduce((a,b)=>a+b,0)/ns.length).toFixed(1):0;}),
+      backgroundColor:CORES.slice(0,emps.length).map(c=>c+'BB'),borderColor:CORES.slice(0,emps.length),borderWidth:2,borderRadius:8
+    }]},
+    options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` Nota: ${c.raw}/10`}}},
+      scales:{y:{min:0,max:10,grid:{color:'#F1F5F9'},ticks:{font:{family:'Outfit',size:12}}},x:{grid:{display:false},ticks:{font:{family:'Outfit',size:12}}}},animation:{duration:600}}
+  });}
 }
 
-function renderRegistros() {
-  const dados = [...AUDITORIAS].sort((a,b)=>{ const da=new Date(a.data||0),db2=new Date(b.data||0); return db2-da; });
-  document.getElementById('cntReg').textContent = dados.length + ' registros';
-  document.getElementById('tbodyReg').innerHTML = dados.length ? dados.map(a => {
-    const isNC = a.naoConformidade;
-    const n = a.nota != null ? +a.nota : null;
-    const nc = n!=null?(n>=8?'#16A34A':n>=6?'#D97706':'#DC2626'):'#64748B';
-    const conf = a.conformidade != null ? a.conformidade : '—';
-    const corConf2 = typeof conf==='number' ? corConf(conf) : '#64748B';
-    return `<tr>
-      <td>${a.data || '—'}</td>
-      <td>${a.unidadeNome || '—'}</td>
-      <td><strong>${a.parceiro || '—'}</strong></td>
-      <td>${a.numeroAPR || '—'}</td>
-      <td>${a.local || '—'}</td>
+// ════════════════════════════════════════════════
+// REGISTROS
+// ════════════════════════════════════════════════
+function renderReg() {
+  // Sync filters
+  const unidSel=document.getElementById('rUnid')?.value||'';
+  const parcSel=document.getElementById('rParc')?.value||'';
+  const ncSel=document.getElementById('rNC')?.value||'';
+  const dados=getFilt(unidSel,parcSel,'',ncSel);
+  document.getElementById('cntReg').textContent=dados.length+' registros';
+  document.getElementById('tbReg').innerHTML=dados.length?dados.map(a=>{
+    const isNC=a.naoConformidade;
+    const n=a.nota!=null?+a.nota:null;
+    const nc=n!=null?(n>=8?'#16A34A':n>=6?'#D97706':'#DC2626'):'#64748B';
+    const conf=a.conformidade!=null?a.conformidade:null;
+    const corC=conf!=null?corConf(conf):'#64748B';
+    return`<tr>
+      <td>${a.data||'—'}</td><td>${a.unidadeNome||'—'}</td>
+      <td><strong>${a.parceiro||'—'}</strong></td><td>${a.apr||'—'}</td>
+      <td>${a.local||'—'}</td><td>${a.tecnico?.nome||'—'}</td>
       <td><span style="font-weight:800;color:${nc}">${n!=null?n+'/10':'—'}</span></td>
-      <td><span style="font-weight:700;color:${corConf2}">${typeof conf==='number'?conf+'%':'—'}</span></td>
+      <td><span style="font-weight:700;color:${corC}">${conf!=null?conf+'%':'—'}</span></td>
       <td><span class="badge ${isNC?'b-nc':'b-ok'}">${isNC?'⚠ NC':'✓ OK'}</span></td>
+      <td><button class="btn-icon" onclick="openPrint('${a.id}')" title="Imprimir">🖨️</button></td>
     </tr>`;
-  }).join('') : `<tr><td colspan="8"><div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Nenhuma auditoria registrada ainda</div></div></td></tr>`;
+  }).join(''):`<tr><td colspan="10"><div class="empty"><div class="empty-ico">📭</div><div class="empty-txt">Nenhum registro</div></div></td></tr>`;
 }
 
-// ═══════════════════════════════════════════════════════
-// CONFIG — UNIDADES
-// ═══════════════════════════════════════════════════════
-async function renderUnidadesConfig() {
-  const snap = await db.collection('unidades').orderBy('nome').get();
-  unidades = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  document.getElementById('listaUnidades').innerHTML = unidades.length
-    ? unidades.map(u => `<div class="item-row">
-        <div class="item-label">${u.nome}</div>
-        <button class="btn-icon del" onclick="excluirUnidade('${u.id}')" title="Excluir">🗑</button>
-      </div>`).join('')
-    : '<div style="font-size:13px;color:var(--slate500);padding:8px">Nenhuma unidade cadastrada.</div>';
+// Sync unidade filter between dash and registros
+document.getElementById('rUnid')?.addEventListener('change', renderReg);
+document.getElementById('rParc')?.addEventListener('change', renderReg);
 
-  // Atualiza select de parceiros
-  const sel = document.getElementById('cfgUnidadeSel');
-  sel.innerHTML = '<option value="">Selecione uma unidade...</option>';
-  unidades.forEach(u => {
-    const opt = document.createElement('option');
-    opt.value = u.id; opt.textContent = u.nome;
-    sel.appendChild(opt);
+// ════════════════════════════════════════════════
+// PRINT / PDF
+// ════════════════════════════════════════════════
+async function openPrint(audId) {
+  const a=AUDITORIAS.find(x=>x.id===audId);
+  if(!a)return;
+  const conf=a.conformidade??0;
+  const corC=corConf(conf);
+  const isNC=a.naoConformidade;
+
+  // Build pergunta groups
+  let secoes='';
+  SECOES_ORDER.forEach(sec=>{
+    const pergs=PERGUNTAS.filter(p=>p.secao===sec);
+    if(!pergs.length)return;
+    secoes+=`<div class="print-section">
+      <div class="print-section-title">${sec}</div>
+      ${pergs.map(p=>{
+        const resp=a.respostas?.[p.id];
+        let respTxt='—', cls='';
+        if(p.tipo==='nota'){respTxt=resp!=null?`Nota: ${resp}/10`:'—';cls='';}
+        else{respTxt=resp||'—';cls=resp==='Sim'?'sim':resp==='Não'?'nao':'';}
+        return`<div class="print-q">
+          <div class="print-q-txt"><strong>P${p.peso}</strong> · ${p.texto}</div>
+          <div class="print-q-resp ${cls}">${respTxt}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
   });
 
-  await carregarUnidadesForm();
+  document.getElementById('printContent').innerHTML=`
+    <div class="print-header">
+      <h1>🛡️ Auditoria de Qualidade de APR</h1>
+      <div class="meta">
+        <div class="meta-item"><strong>Unidade:</strong> ${a.unidadeNome||'—'}</div>
+        <div class="meta-item"><strong>Empresa:</strong> ${a.parceiro||'—'}</div>
+        <div class="meta-item"><strong>Data:</strong> ${a.data||'—'}</div>
+        <div class="meta-item"><strong>APR Nº:</strong> ${a.apr||'—'}</div>
+        <div class="meta-item"><strong>Local:</strong> ${a.local||'—'}</div>
+        <div class="meta-item"><strong>Técnico:</strong> ${a.tecnico?.nome||'—'}</div>
+      </div>
+    </div>
+    ${secoes}
+    ${a.coment?`<div class="print-section"><div class="print-section-title">Comentários Finais</div><p style="font-size:13px;color:#334155;line-height:1.6">${a.coment}</p></div>`:''}
+    <div class="print-footer">
+      <div>
+        <div class="print-sig"><div class="sig-line"></div><p>Assinatura do Técnico</p><p>${a.tecnico?.nome||''}</p></div>
+      </div>
+      <div style="text-align:center">
+        <div class="print-conf-badge" style="background:${corC}22;color:${corC};border:3px solid ${corC}">${conf}%<br><span style="font-size:12px;font-weight:600">Conformidade</span></div>
+        <div style="margin-top:8px"><span class="badge ${isNC?'b-nc':'b-ok'}" style="font-size:13px;padding:5px 14px">${isNC?'⚠️ Não Conforme':'✅ Conforme'}</span></div>
+      </div>
+      <div>
+        <div class="print-sig"><div class="sig-line"></div><p>Responsável pela Auditoria</p></div>
+      </div>
+    </div>`;
+
+  document.getElementById('printView').classList.add('open');
 }
 
-async function adicionarUnidade() {
-  const nome = document.getElementById('novaUnidade').value.trim();
-  if (!nome) { showToast('Digite o nome da unidade','error'); return; }
-  await db.collection('unidades').add({ nome, criadoEm: new Date() });
-  document.getElementById('novaUnidade').value = '';
-  showToast('Unidade adicionada!','success');
-  await renderUnidadesConfig();
+function doPrint() { window.print(); }
+
+function doPDF() {
+  window.print(); // browsers save as PDF via print dialog
 }
 
-async function excluirUnidade(id) {
-  if (!confirm('Excluir esta unidade? Os parceiros vinculados também serão removidos.')) return;
-  const snap = await db.collection('unidades').doc(id).collection('parceiros').get();
-  const batch = db.batch();
-  snap.docs.forEach(d => batch.delete(d.ref));
-  batch.delete(db.collection('unidades').doc(id));
-  await batch.commit();
-  showToast('Unidade excluída','success');
-  await renderUnidadesConfig();
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  document.getElementById(id).style.display='';
+}
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+
+// ════════════════════════════════════════════════
+// NAVIGATION
+// ════════════════════════════════════════════════
+async function goP(btn) {
+  const id=btn.getAttribute('data-page');
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  btn.classList.add('active');
+  document.getElementById('topbarT').textContent=PAGE_TITLES[id]||id;
+  if(id==='configuracoes') await renderUnidadesCfg();
+  if(id==='perguntas'){await loadPerguntas();renderPerguntasConfig();}
+  if(id==='usuarios') await renderUsers();
+  if(id==='dashboard') renderDash();
+  if(id==='registros') renderReg();
 }
 
-// ═══════════════════════════════════════════════════════
-// CONFIG — PARCEIROS
-// ═══════════════════════════════════════════════════════
-async function renderParceirosConfig() {
-  const unidadeId = document.getElementById('cfgUnidadeSel').value;
-  const lista = document.getElementById('listaParceiros');
-  const addRow = document.getElementById('addParcRow');
-  if (!unidadeId) { lista.innerHTML=''; addRow.style.display='none'; return; }
-
-  const snap = await db.collection('unidades').doc(unidadeId).collection('parceiros').orderBy('nome').get();
-  const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-  lista.innerHTML = items.length
-    ? items.map(p => `<div class="item-row">
-        <div class="item-label">${p.nome}</div>
-        <button class="btn-icon del" onclick="excluirParceiro('${unidadeId}','${p.id}')" title="Excluir">🗑</button>
-      </div>`).join('')
-    : '<div style="font-size:13px;color:var(--slate500);padding:8px">Nenhum parceiro cadastrado nesta unidade.</div>';
-
-  addRow.style.display = 'flex';
-}
-
-async function adicionarParceiro() {
-  const unidadeId = document.getElementById('cfgUnidadeSel').value;
-  const nome = document.getElementById('novoParceiro').value.trim();
-  if (!unidadeId) { showToast('Selecione uma unidade','error'); return; }
-  if (!nome) { showToast('Digite o nome do parceiro','error'); return; }
-  await db.collection('unidades').doc(unidadeId).collection('parceiros').add({ nome, criadoEm: new Date() });
-  document.getElementById('novoParceiro').value = '';
-  showToast('Parceiro adicionado!','success');
-  await renderParceirosConfig();
-  await carregarUnidadesForm();
-}
-
-async function excluirParceiro(unidadeId, parcId) {
-  if (!confirm('Excluir este parceiro?')) return;
-  await db.collection('unidades').doc(unidadeId).collection('parceiros').doc(parcId).delete();
-  showToast('Parceiro excluído','success');
-  await renderParceirosConfig();
-}
-
-// ═══════════════════════════════════════════════════════
-// CONFIG — USUÁRIOS
-// ═══════════════════════════════════════════════════════
-async function renderUsuariosConfig() {
-  const snap = await db.collection('usuarios').get();
-  const users = snap.docs.map(d => d.data());
-  document.getElementById('listaUsuarios').innerHTML = users.length
-    ? users.map(u => `<div class="item-row">
-        <div>
-          <div class="item-label">${u.nome}</div>
-          <div class="item-sub">${u.email}</div>
-        </div>
-      </div>`).join('')
-    : '<div style="font-size:13px;color:var(--slate500);padding:8px">Nenhum usuário cadastrado.</div>';
-}
-
-// ═══════════════════════════════════════════════════════
-// NAVEGAÇÃO
-// ═══════════════════════════════════════════════════════
-const PAGE_TITLES = {
-  formulario:'Nova Auditoria', dashboard:'Dashboard', registros:'Registros', config:'Configurações'
-};
-
-async function goPage(id, btn) {
-  document.querySelectorAll('.page-content').forEach(p=>p.style.display='none');
-  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('page-'+id).style.display = 'block';
-  if(btn) btn.classList.add('active');
-  document.getElementById('topbarTitle').textContent = PAGE_TITLES[id]||id;
-
-  if (id === 'config') {
-    await renderUnidadesConfig();
-    await renderParceirosConfig();
-    await renderUsuariosConfig();
-  }
-  if (id === 'dashboard') renderDash();
-  if (id === 'registros') renderRegistros();
-}
-
-function showScreen(id) {
+function showS(id) {
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
 
-// ═══════════════════════════════════════════════════════
+// ════════════════════════════════════════════════
 // TOAST
-// ═══════════════════════════════════════════════════════
-let toastTimer;
-function showToast(msg, type='') {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.className = 'toast show ' + type;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(()=>{ t.className='toast'; }, 3500);
+// ════════════════════════════════════════════════
+let toastT;
+function toast(msg,type=''){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.className='toast show '+(type==='ok'?'ok':type==='err'?'err':'');
+  clearTimeout(toastT);toastT=setTimeout(()=>{el.className='toast';},3500);
 }
 </script>
 </body>
