@@ -253,7 +253,7 @@ code{font-family:monospace;font-size:12px;background:var(--g50);color:var(--g700
 <body>
 
 <!-- ══ SETUP ══ -->
-<div id="s-setup" class="screen active" style="align-items:center;justify-content:center;padding:40px 20px;background:var(--g900)">
+<div id="s-setup" class="screen" style="align-items:center;justify-content:center;padding:40px 20px;background:var(--g900)">
 <div class="auth-box">
   <div class="auth-logo"><div class="icon">🔥</div><h1>Configuração Firebase</h1><p>Faça isso uma vez e o sistema está pronto</p></div>
   <div class="step"><div class="step-n">1</div><div>Acesse <strong>console.firebase.google.com</strong> → crie um projeto</div></div>
@@ -272,7 +272,7 @@ code{font-family:monospace;font-size:12px;background:var(--g50);color:var(--g700
 </div>
 
 <!-- ══ LOGIN ══ -->
-<div id="s-login" class="screen" style="align-items:center;justify-content:center;padding:40px 20px;background:var(--g900)">
+<div id="s-login" class="screen active" style="align-items:center;justify-content:center;padding:40px 20px;background:var(--g900)">
 <div class="auth-box">
   <div class="auth-logo"><div class="icon">🛡️</div><h1>Auditoria APR</h1><p>Gestão de Segurança · Parceiros</p></div>
   <div class="err-box" id="loginErr"></div>
@@ -553,6 +553,15 @@ let filtroSecao = '';
 // ════════════════════════════════════════════════
 // FIREBASE SETUP
 // ════════════════════════════════════════════════
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyC5Kz7Hns8sHhUNKZUODAsPc_JjXI1eyBE",
+  authDomain: "auditoria-apr-1.firebaseapp.com",
+  projectId: "auditoria-apr-1",
+  storageBucket: "auditoria-apr-1.firebasestorage.app",
+  messagingSenderId: "70897842287",
+  appId: "1:70897842287:web:d47ef7b13d9fa91e8ab59a"
+};
+
 function salvarFB() {
   const cfg = {
     apiKey: document.getElementById('fbKey').value.trim(),
@@ -579,8 +588,7 @@ function initFB(cfg) {
 
 window.onload = () => {
   document.getElementById('fData').value = new Date().toISOString().split('T')[0];
-  const saved = localStorage.getItem('aprFB');
-  if (saved) { initFB(JSON.parse(saved)); }
+  initFB(FIREBASE_CONFIG);
 };
 
 // ════════════════════════════════════════════════
