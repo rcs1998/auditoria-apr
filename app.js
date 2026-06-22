@@ -163,6 +163,8 @@ async function onLogin(user) {
   const initial = (user.displayName || user.email || '?')[0].toUpperCase();
   document.getElementById('userAvatar').textContent = initial;
   document.getElementById('userName').textContent   = user.displayName || user.email;
+  const avatarMobile = document.getElementById('userAvatarMobile');
+  if (avatarMobile) avatarMobile.textContent = initial;
 
   let userDoc;
   try {
