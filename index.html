@@ -104,29 +104,8 @@
         </div>
         <div class="form-field"><label>Local / Frente de Serviço *</label><input type="text" id="fLocal" placeholder="Ex: Manutenção Linha 3"/></div>
 
-        <!-- Seção 1: Identificação da APR -->
-        <div class="form-section-header" id="h-q-bloco-id">2. Identificação da APR</div>
-        <div id="q-bloco-id"></div>
-
-        <!-- Seção 2: Riscos -->
-        <div class="form-section-header" id="h-q-bloco-riscos">3. Identificação de Riscos</div>
-        <div id="q-bloco-riscos"></div>
-
-        <!-- Seção 3: Controles -->
-        <div class="form-section-header" id="h-q-bloco-controles">4. Medidas de Controle</div>
-        <div id="q-bloco-controles"></div>
-
-        <!-- Seção 4: Qualidade -->
-        <div class="form-section-header" id="h-q-bloco-qualidade">5. Qualidade da APR</div>
-        <div id="q-bloco-qualidade"></div>
-
-        <!-- Seção 5: Evidências -->
-        <div class="form-section-header" id="h-q-bloco-evidencias">6. Evidências</div>
-        <div id="q-bloco-evidencias"></div>
-
-        <!-- Seção 6: Desvios -->
-        <div class="form-section-header" id="h-q-bloco-desvios" style="background:var(--red)">7. Desvios e Não Conformidades</div>
-        <div id="q-bloco-desvios"></div>
+        <!-- Seções dinâmicas (geradas via JS a partir de config/perguntas) -->
+        <div id="secoes-dinamicas-container"></div>
 
         <div class="form-field" style="margin-top:16px">
           <label>Comentários Finais</label>
@@ -191,7 +170,7 @@
 
     <!-- ── PAGE: CONFIG ── -->
     <div class="page-content" id="page-config" style="display:none">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:900px">
+      <div class="grid-2" style="max-width:900px">
 
         <!-- Unidades -->
         <div class="card">
@@ -231,22 +210,24 @@
       <div class="card" style="max-width:820px">
         <div class="config-section">
           <h3>❓ Perguntas do Formulário</h3>
-          <p style="font-size:13px;color:var(--slate500);margin-bottom:14px">Edite o nome da seção, crie, edite ou remova perguntas.</p>
-          <div class="form-field" style="margin-bottom:14px">
-            <label>Seção</label>
-            <select id="pgSecaoSel" onchange="renderPerguntasConfig()">
-              <option value="q-bloco-id">1. Identificação da APR</option>
-              <option value="q-bloco-riscos">2. Identificação de Riscos</option>
-              <option value="q-bloco-controles">3. Medidas de Controle</option>
-              <option value="q-bloco-qualidade">4. Qualidade da APR</option>
-              <option value="q-bloco-evidencias">5. Evidências</option>
-              <option value="q-bloco-desvios">6. Desvios e Não Conformidades</option>
-            </select>
+          <p style="font-size:13px;color:var(--slate500);margin-bottom:14px">Edite o nome da seção, crie, edite ou remova seções e perguntas.</p>
+
+          <div class="add-row" style="margin-bottom:10px">
+            <div class="form-field" style="flex:2">
+              <label>Seção</label>
+              <select id="pgSecaoSel" onchange="renderPerguntasConfig()"></select>
+            </div>
+            <button class="btn-icon del" onclick="removerSecao()" title="Remover esta seção">🗑️</button>
+          </div>
+
+          <div class="add-row" style="margin-bottom:8px">
+            <div class="form-field" style="flex:2"><label>Nome da Seção</label><input type="text" id="pgNomeSecao" placeholder="Ex: Identificação de Riscos"/></div>
+            <button class="btn btn-secondary btn-sm" onclick="salvarNomeSecao()">💾 Salvar Nome</button>
           </div>
 
           <div class="add-row" style="margin-bottom:18px">
-            <div class="form-field" style="flex:2"><label>Nome da Seção</label><input type="text" id="pgNomeSecao" placeholder="Ex: Identificação de Riscos"/></div>
-            <button class="btn btn-secondary btn-sm" onclick="salvarNomeSecao()">💾 Salvar Nome</button>
+            <div class="form-field" style="flex:2"><label>Nova Seção</label><input type="text" id="pgNovaSecaoNome" placeholder="Ex: Equipamentos de Proteção"/></div>
+            <button class="btn btn-primary btn-sm" onclick="adicionarSecao()">+ Criar Seção</button>
           </div>
 
           <div class="items-list" id="listaPerguntas"></div>
