@@ -28,6 +28,12 @@ const SECAO_NOMES_DEFAULT = {
   'q-bloco-desvios':    '7. Desvios e Não Conformidades',
 };
 
+// Define a ordem de exibição das seções no formulário e na página de Perguntas.
+const ORDEM_SECOES_DEFAULT = [
+  'q-bloco-id', 'q-bloco-riscos', 'q-bloco-controles',
+  'q-bloco-qualidade', 'q-bloco-evidencias', 'q-bloco-desvios',
+];
+
 const PERGUNTAS_DEFAULT = {
   'q-bloco-id': [
     { id:'q1', texto:'APR possui identificação da atividade?',    peso:1, tipo:'sn', invertida:false },
@@ -55,8 +61,10 @@ const PERGUNTAS_DEFAULT = {
   ],
 };
 
-let SECAO_NOMES = JSON.parse(JSON.stringify(SECAO_NOMES_DEFAULT));
-let PERGUNTAS   = JSON.parse(JSON.stringify(PERGUNTAS_DEFAULT));
+let SECAO_NOMES   = JSON.parse(JSON.stringify(SECAO_NOMES_DEFAULT));
+let PERGUNTAS     = JSON.parse(JSON.stringify(PERGUNTAS_DEFAULT));
+let ORDEM_SECOES  = JSON.parse(JSON.stringify(ORDEM_SECOES_DEFAULT));
+
 
 const RESPOSTAS   = {};
 const COMENTARIOS = {};
@@ -189,6 +197,7 @@ async function onLogin(user) {
   }
 
   aplicarPermissoes(NIVEL_ATUAL);
+  irParaPaginaInicial();
 
   await carregarPerguntas();
   await carregarUnidadesForm();
@@ -272,30 +281,41 @@ async function carregarPerguntas() {
   try {
     const doc = await db.collection('config').doc('perguntas').get();
     if (doc.exists && doc.data().secoes) {
-      PERGUNTAS = doc.data().secoes;
-      SECAO_NOMES = doc.data().nomes || JSON.parse(JSON.stringify(SECAO_NOMES_DEFAULT));
+      const dados = doc.data();
+      PERGUNTAS = dados.secoes;
+      SECAO_NOMES = dados.nomes || JSON.parse(JSON.stringify(SECAO_NOMES_DEFAULT));
+      // "ordem" é novo — se o documento ainda não tiver, monta a partir das chaves existentes.
+      ORDEM_SECOES = dados.ordem && dados.ordem.length ? dados.ordem : Object.keys(PERGUNTAS);
     } else {
       PERGUNTAS = JSON.parse(JSON.stringify(PERGUNTAS_DEFAULT));
       SECAO_NOMES = JSON.parse(JSON.stringify(SECAO_NOMES_DEFAULT));
-      await db.collection('config').doc('perguntas').set({ secoes: PERGUNTAS, nomes: SECAO_NOMES });
+      ORDEM_SECOES = JSON.parse(JSON.stringify(ORDEM_SECOES_DEFAULT));
+      await db.collection('config').doc('perguntas').set({ secoes: PERGUNTAS, nomes: SECAO_NOMES, ordem: ORDEM_SECOES });
     }
   } catch(e) {
     PERGUNTAS = JSON.parse(JSON.stringify(PERGUNTAS_DEFAULT));
     SECAO_NOMES = JSON.parse(JSON.stringify(SECAO_NOMES_DEFAULT));
+    ORDEM_SECOES = JSON.parse(JSON.stringify(ORDEM_SECOES_DEFAULT));
   }
   renderPerguntas();
-  renderNomesSecoes();
+  renderSelectSecoes();
 }
 
 async function salvarPerguntas() {
-  await db.collection('config').doc('perguntas').set({ secoes: PERGUNTAS, nomes: SECAO_NOMES });
+  await db.collection('config').doc('perguntas').set({ secoes: PERGUNTAS, nomes: SECAO_NOMES, ordem: ORDEM_SECOES });
 }
 
-function renderNomesSecoes() {
-  Object.entries(SECAO_NOMES).forEach(([secaoId, nome]) => {
-    const el = document.getElementById('h-' + secaoId);
-    if (el) el.textContent = nome;
-  });
+/** Preenche o <select> de seções da página "Perguntas" respeitando ORDEM_SECOES. */
+function renderSelectSecoes() {
+  const sel = document.getElementById('pgSecaoSel');
+  if (!sel) return;
+  const valorAtual = sel.value;
+  sel.innerHTML = ORDEM_SECOES.map((id, idx) =>
+    `<option value="${id}">${idx+1}. ${escapeHtml(SECAO_NOMES[id] || id)}</option>`
+  ).join('');
+  // Mantém a seleção anterior se ela ainda existir, senão seleciona a primeira.
+  if (ORDEM_SECOES.includes(valorAtual)) sel.value = valorAtual;
+  renderPerguntasConfig();
 }
 
 async function salvarNomeSecao() {
@@ -304,8 +324,49 @@ async function salvarNomeSecao() {
   if (!nome) { showToast('Digite o nome da seção','error'); return; }
   SECAO_NOMES[secaoId] = nome;
   await salvarPerguntas();
-  renderNomesSecoes();
+  renderPerguntas();
+  renderSelectSecoes();
   showToast('Nome da seção atualizado!', 'success');
+}
+
+async function adicionarSecao() {
+  const nome = document.getElementById('pgNovaSecaoNome').value.trim();
+  if (!nome) { showToast('Digite o nome da nova seção','error'); return; }
+
+  const novoId = 'q-secao-' + Date.now();
+  SECAO_NOMES[novoId] = nome;
+  PERGUNTAS[novoId] = [];
+  ORDEM_SECOES.push(novoId);
+
+  await salvarPerguntas();
+  document.getElementById('pgNovaSecaoNome').value = '';
+  renderPerguntas();
+  renderSelectSecoes();
+  document.getElementById('pgSecaoSel').value = novoId;
+  renderPerguntasConfig();
+  showToast('Seção criada!', 'success');
+}
+
+async function removerSecao() {
+  const secaoId = document.getElementById('pgSecaoSel').value;
+  if (!secaoId) return;
+  if (ORDEM_SECOES.length <= 1) { showToast('É preciso manter ao menos uma seção.','error'); return; }
+
+  const nomeSecao = SECAO_NOMES[secaoId] || secaoId;
+  const qtdPerguntas = (PERGUNTAS[secaoId] || []).length;
+  const aviso = qtdPerguntas > 0
+    ? `Remover a seção "${nomeSecao}"? Isso também excluirá as ${qtdPerguntas} pergunta(s) dela. Essa ação não pode ser desfeita.`
+    : `Remover a seção "${nomeSecao}"?`;
+  if (!confirm(aviso)) return;
+
+  delete PERGUNTAS[secaoId];
+  delete SECAO_NOMES[secaoId];
+  ORDEM_SECOES = ORDEM_SECOES.filter(id => id !== secaoId);
+
+  await salvarPerguntas();
+  renderPerguntas();
+  renderSelectSecoes();
+  showToast('Seção removida!', 'success');
 }
 
 function renderPerguntasConfig() {
@@ -333,6 +394,7 @@ async function adicionarPergunta() {
   const tipo = document.getElementById('novaPerguntaTipo').value;
   const invertida = document.getElementById('novaPerguntaInvertida').checked;
 
+  if (!secaoId) { showToast('Crie ou selecione uma seção primeiro','error'); return; }
   if (!texto) { showToast('Digite o texto da pergunta','error'); return; }
   if (peso < 1 || peso > 5) { showToast('O peso deve estar entre 1 e 5','error'); return; }
 
@@ -345,6 +407,7 @@ async function adicionarPergunta() {
   document.getElementById('novaPerguntaPeso').value = '1';
   document.getElementById('novaPerguntaInvertida').checked = false;
   showToast('Pergunta adicionada!', 'success');
+  renderPerguntas();
   renderPerguntasConfig();
 }
 
@@ -353,15 +416,26 @@ async function removerPergunta(secaoId, idx) {
   PERGUNTAS[secaoId].splice(idx, 1);
   await salvarPerguntas();
   showToast('Pergunta removida!', 'success');
+  renderPerguntas();
   renderPerguntasConfig();
 }
 
+/** Gera os blocos do formulário (cabeçalho + perguntas) dinamicamente,
+ *  na ordem definida por ORDEM_SECOES, dentro do container fixo do HTML. */
 function renderPerguntas() {
-  Object.entries(PERGUNTAS).forEach(([blocoId, perguntas]) => {
-    const el = document.getElementById(blocoId);
-    if (!el) return;
-    el.innerHTML = perguntas.map(p => p.tipo === 'nota' ? renderNota(p) : renderSN(p)).join('');
-  });
+  const container = document.getElementById('secoes-dinamicas-container');
+  if (!container) return;
+
+  container.innerHTML = ORDEM_SECOES.map((secaoId, idx) => {
+    const nome = SECAO_NOMES[secaoId] || secaoId;
+    const perguntas = PERGUNTAS[secaoId] || [];
+    const ehUltima = idx === ORDEM_SECOES.length - 1;
+    const corFundo = ehUltima ? 'background:var(--red)' : '';
+    return `
+      <div class="form-section-header" style="${corFundo}">${escapeHtml(nome)}</div>
+      <div>${perguntas.map(p => p.tipo === 'nota' ? renderNota(p) : renderSN(p)).join('')}</div>
+    `;
+  }).join('');
 }
 
 function renderSN(p) {
@@ -876,6 +950,15 @@ async function excluirParceiro(unidadeId, parcId) {
 // ═══════════════════════════════════════════════════════
 // 11. NAVEGAÇÃO
 // ═══════════════════════════════════════════════════════
+function irParaPaginaInicial() {
+  // Sempre volta para "Nova Auditoria" no login — é a única página garantida
+  // em todos os níveis. Evita que a tela fique "presa" numa página que o
+  // usuário anterior tinha aberto (ex: Configurações) mas que este nível não acessa.
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const btnFormulario = document.querySelector('.nav-btn[onclick*="formulario"]');
+  goPage('formulario', btnFormulario);
+}
+
 async function goPage(id, btn) {
   const paginasPermitidas = NIVEIS_PAGINAS[NIVEL_ATUAL] || NIVEIS_PAGINAS.tecnico;
   if (!paginasPermitidas.includes(id)) {
@@ -894,7 +977,7 @@ async function goPage(id, btn) {
     await renderParceirosConfig();
   }
   if (id === 'usuarios')   await renderUsuariosConfig();
-  if (id === 'perguntas')  renderPerguntasConfig();
+  if (id === 'perguntas')  renderSelectSecoes();
   if (id === 'dashboard')  renderDash();
   if (id === 'registros')  renderRegistros();
 }
