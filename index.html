@@ -10,6 +10,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1B6B2E">
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -21,7 +23,7 @@
 <div id="s-login" class="screen active" style="align-items:center;justify-content:center;padding:40px 20px;background:var(--g900)">
   <div class="login-box">
     <div class="login-logo">
-      <div class="icon">🛡️</div>
+      <div class="icon"><img src="icons/icon-192.png" alt="Auditoria APR" style="width:36px;height:36px;border-radius:8px"></div>
       <h1>Auditoria APR</h1>
       <p>Gestão de Segurança · Parceiros</p>
     </div>
@@ -40,7 +42,7 @@
   <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="sb-logo">
-      <div class="sb-logo-icon">🛡️</div>
+      <div class="sb-logo-icon"><img src="icons/icon-192.png" alt="Auditoria APR" style="width:24px;height:24px;border-radius:5px"></div>
       <div class="sb-logo-title">Auditoria APR</div>
       <div class="sb-logo-sub">Gestão de Segurança</div>
     </div>
@@ -66,7 +68,15 @@
   <!-- MAIN -->
   <div class="main">
     <div class="topbar">
+      <div class="topbar-mobile-logo">
+        <img src="icons/icon-192.png" alt="" class="topbar-mobile-icon">
+        <span>Auditoria APR</span>
+      </div>
       <div class="topbar-title" id="topbarTitle">Nova Auditoria</div>
+      <div class="topbar-mobile-user">
+        <div class="user-avatar" id="userAvatarMobile">?</div>
+        <button class="btn-logout" onclick="fazerLogout()" title="Sair">↩</button>
+      </div>
     </div>
 
     <!-- ── PAGE: FORMULÁRIO ── -->
