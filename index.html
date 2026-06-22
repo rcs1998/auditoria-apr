@@ -411,27 +411,27 @@ code{font-family:monospace;font-size:12px;background:var(--g50);color:var(--g700
         <div class="form-field"><label>Local / Frente de Serviço *</label><input type="text" id="fLocal" placeholder="Ex: Manutenção Linha 3"/></div>
 
         <!-- Seção 1: Identificação da APR -->
-        <div class="form-section-header">2. Identificação da APR</div>
+        <div class="form-section-header" id="h-q-bloco-id">2. Identificação da APR</div>
         <div id="q-bloco-id"></div>
 
         <!-- Seção 2: Riscos -->
-        <div class="form-section-header">3. Identificação de Riscos</div>
+        <div class="form-section-header" id="h-q-bloco-riscos">3. Identificação de Riscos</div>
         <div id="q-bloco-riscos"></div>
 
         <!-- Seção 3: Controles -->
-        <div class="form-section-header">4. Medidas de Controle</div>
+        <div class="form-section-header" id="h-q-bloco-controles">4. Medidas de Controle</div>
         <div id="q-bloco-controles"></div>
 
         <!-- Seção 4: Qualidade -->
-        <div class="form-section-header">5. Qualidade da APR</div>
+        <div class="form-section-header" id="h-q-bloco-qualidade">5. Qualidade da APR</div>
         <div id="q-bloco-qualidade"></div>
 
         <!-- Seção 5: Evidências -->
-        <div class="form-section-header">6. Evidências</div>
+        <div class="form-section-header" id="h-q-bloco-evidencias">6. Evidências</div>
         <div id="q-bloco-evidencias"></div>
 
         <!-- Seção 6: Desvios -->
-        <div class="form-section-header" style="background:var(--red)">7. Desvios e Não Conformidades</div>
+        <div class="form-section-header" id="h-q-bloco-desvios" style="background:var(--red)">7. Desvios e Não Conformidades</div>
         <div id="q-bloco-desvios"></div>
 
         <div class="form-field" style="margin-top:16px">
@@ -531,7 +531,7 @@ code{font-family:monospace;font-size:12px;background:var(--g50);color:var(--g700
       <div class="card" style="max-width:820px">
         <div class="config-section">
           <h3>❓ Perguntas do Formulário</h3>
-          <p style="font-size:13px;color:var(--slate500);margin-bottom:14px">Edite, crie ou remova as perguntas de cada seção da auditoria.</p>
+          <p style="font-size:13px;color:var(--slate500);margin-bottom:14px">Edite o nome da seção, crie, edite ou remova perguntas.</p>
           <div class="form-field" style="margin-bottom:14px">
             <label>Seção</label>
             <select id="pgSecaoSel" onchange="renderPerguntasConfig()">
@@ -543,12 +543,25 @@ code{font-family:monospace;font-size:12px;background:var(--g50);color:var(--g700
               <option value="q-bloco-desvios">6. Desvios e Não Conformidades</option>
             </select>
           </div>
+
+          <div class="add-row" style="margin-bottom:18px">
+            <div class="form-field" style="flex:2"><label>Nome da Seção</label><input type="text" id="pgNomeSecao" placeholder="Ex: Identificação de Riscos"/></div>
+            <button class="btn btn-secondary btn-sm" onclick="salvarNomeSecao()">💾 Salvar Nome</button>
+          </div>
+
           <div class="items-list" id="listaPerguntas"></div>
-          <div class="add-row">
-            <div class="form-field" style="flex:2"><label>Texto da Pergunta</label><input type="text" id="novaPerguntaTexto" placeholder="Ex: Os EPIs estão descritos?"/></div>
+
+          <div class="add-row" style="flex-wrap:wrap">
+            <div class="form-field" style="flex:2;min-width:220px"><label>Texto da Pergunta</label><input type="text" id="novaPerguntaTexto" placeholder="Ex: Os EPIs estão descritos?"/></div>
             <div class="form-field"><label>Peso</label><input type="number" id="novaPerguntaPeso" value="1" min="1" max="5" style="width:70px"/></div>
             <div class="form-field"><label>Tipo</label>
               <select id="novaPerguntaTipo"><option value="sn">Sim/Não</option><option value="nota">Nota (0-10)</option></select>
+            </div>
+            <div class="form-field" style="justify-content:flex-end">
+              <label style="display:flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer">
+                <input type="checkbox" id="novaPerguntaInvertida" style="width:auto"/>
+                Resposta inversa ("Não" é conforme)
+              </label>
             </div>
             <button class="btn btn-primary btn-sm" onclick="adicionarPergunta()">+ Adicionar</button>
           </div>
@@ -590,36 +603,48 @@ code{font-family:monospace;font-size:12px;background:var(--g50);color:var(--g700
 // ═══════════════════════════════════════════════════════
 // PERGUNTAS DO FORMULÁRIO
 // ═══════════════════════════════════════════════════════
+const SECAO_NOMES_DEFAULT = {
+  'q-bloco-id':         '2. Identificação da APR',
+  'q-bloco-riscos':     '3. Identificação de Riscos',
+  'q-bloco-controles':  '4. Medidas de Controle',
+  'q-bloco-qualidade':  '5. Qualidade da APR',
+  'q-bloco-evidencias': '6. Evidências',
+  'q-bloco-desvios':    '7. Desvios e Não Conformidades',
+};
+
 const PERGUNTAS_DEFAULT = {
   'q-bloco-id': [
-    { id:'q1', texto:'APR possui identificação da atividade?',    peso:1, tipo:'sn' },
-    { id:'q2', texto:'Data está preenchida na APR?',              peso:1, tipo:'sn' },
-    { id:'q3', texto:'Equipe está listada?',                      peso:1, tipo:'sn' },
+    { id:'q1', texto:'APR possui identificação da atividade?',    peso:1, tipo:'sn', invertida:false },
+    { id:'q2', texto:'Data está preenchida na APR?',              peso:1, tipo:'sn', invertida:false },
+    { id:'q3', texto:'Equipe está listada?',                      peso:1, tipo:'sn', invertida:false },
   ],
   'q-bloco-riscos': [
-    { id:'q4', texto:'Riscos foram identificados?',               peso:3, tipo:'sn' },
-    { id:'q5', texto:'Os riscos são compatíveis com a atividade?',peso:1, tipo:'sn' },
+    { id:'q4', texto:'Riscos foram identificados?',               peso:3, tipo:'sn', invertida:false },
+    { id:'q5', texto:'Os riscos são compatíveis com a atividade?',peso:1, tipo:'sn', invertida:false },
   ],
   'q-bloco-controles': [
-    { id:'q6', texto:'Existem controles para os riscos?',         peso:3, tipo:'sn' },
-    { id:'q7', texto:'Os controles são específicos (não genéricos)?', peso:1, tipo:'sn' },
+    { id:'q6', texto:'Existem controles para os riscos?',         peso:3, tipo:'sn', invertida:false },
+    { id:'q7', texto:'Os controles são específicos (não genéricos)?', peso:1, tipo:'sn', invertida:false },
   ],
   'q-bloco-qualidade': [
-    { id:'q8',  texto:'APR está clara e legível?',                peso:1, tipo:'sn' },
-    { id:'q9',  texto:'Foi copiada de outra APR sem adaptação?',  peso:1, tipo:'sn' },
-    { id:'q10', texto:'Nota geral da APR (0 a 10)', peso:1, tipo:'nota' },
+    { id:'q8',  texto:'APR está clara e legível?',                peso:1, tipo:'sn', invertida:false },
+    { id:'q9',  texto:'Foi copiada de outra APR sem adaptação?',  peso:1, tipo:'sn', invertida:true },
+    { id:'q10', texto:'Nota geral da APR (0 a 10)', peso:1, tipo:'nota', invertida:false },
   ],
   'q-bloco-evidencias': [
-    { id:'q11', texto:'Registro / evidência fotográfica presente?', peso:1, tipo:'sn' },
+    { id:'q11', texto:'Registro / evidência fotográfica presente?', peso:1, tipo:'sn', invertida:false },
   ],
   'q-bloco-desvios': [
-    { id:'q12', texto:'Existe não conformidade identificada?', peso:1, tipo:'sn' },
+    { id:'q12', texto:'Existe não conformidade identificada?', peso:1, tipo:'sn', invertida:true },
   ],
 };
+
+let SECAO_NOMES = JSON.parse(JSON.stringify(SECAO_NOMES_DEFAULT));
 
 let PERGUNTAS = JSON.parse(JSON.stringify(PERGUNTAS_DEFAULT));
 
 const RESPOSTAS = {};
+const COMENTARIOS = {};
 const CORES_EMPRESA = ['#1B6B2E','#16A34A','#D97706','#1D4ED8','#DC2626','#7C3AED','#0891B2','#DB2777'];
 
 // ═══════════════════════════════════════════════════════
@@ -698,6 +723,24 @@ async function onLogin(user) {
   // Busca o nível de acesso do usuário
   const userDoc = await db.collection('usuarios').doc(user.uid).get();
   NIVEL_ATUAL = userDoc.exists ? (userDoc.data().nivel || 'tecnico') : 'tecnico';
+
+  // Fallback de segurança: se o e-mail estiver na lista legada config/admins,
+  // garante nível admin mesmo que o doc em usuarios não tenha 'nivel' definido.
+  if (NIVEL_ATUAL !== 'admin') {
+    try {
+      const adminDoc = await db.collection('config').doc('admins').get();
+      const admins = adminDoc.exists ? (adminDoc.data().emails || []) : [];
+      if (admins.includes(user.email)) {
+        NIVEL_ATUAL = 'admin';
+        // Sincroniza para não depender do fallback nas próximas vezes
+        await db.collection('usuarios').doc(user.uid).set(
+          { email: user.email, nome: user.displayName || user.email, nivel: 'admin' },
+          { merge: true }
+        );
+      }
+    } catch(e) { /* silencioso — fallback é best-effort */ }
+  }
+
   aplicarPermissoes(NIVEL_ATUAL);
 
   await carregarPerguntas();
@@ -755,27 +798,53 @@ async function carregarPerguntas() {
     const doc = await db.collection('config').doc('perguntas').get();
     if (doc.exists && doc.data().secoes) {
       PERGUNTAS = doc.data().secoes;
+      SECAO_NOMES = doc.data().nomes || JSON.parse(JSON.stringify(SECAO_NOMES_DEFAULT));
     } else {
       PERGUNTAS = JSON.parse(JSON.stringify(PERGUNTAS_DEFAULT));
-      await db.collection('config').doc('perguntas').set({ secoes: PERGUNTAS });
+      SECAO_NOMES = JSON.parse(JSON.stringify(SECAO_NOMES_DEFAULT));
+      await db.collection('config').doc('perguntas').set({ secoes: PERGUNTAS, nomes: SECAO_NOMES });
     }
   } catch(e) {
     PERGUNTAS = JSON.parse(JSON.stringify(PERGUNTAS_DEFAULT));
+    SECAO_NOMES = JSON.parse(JSON.stringify(SECAO_NOMES_DEFAULT));
   }
   renderPerguntas();
+  renderNomesSecoes();
 }
 
 async function salvarPerguntas() {
-  await db.collection('config').doc('perguntas').set({ secoes: PERGUNTAS });
+  await db.collection('config').doc('perguntas').set({ secoes: PERGUNTAS, nomes: SECAO_NOMES });
+}
+
+function renderNomesSecoes() {
+  Object.entries(SECAO_NOMES).forEach(([secaoId, nome]) => {
+    const el = document.getElementById('h-' + secaoId);
+    if (el) el.textContent = nome;
+  });
+}
+
+async function salvarNomeSecao() {
+  const secaoId = document.getElementById('pgSecaoSel').value;
+  const nome = document.getElementById('pgNomeSecao').value.trim();
+  if (!nome) { showToast('Digite o nome da seção','error'); return; }
+  SECAO_NOMES[secaoId] = nome;
+  await salvarPerguntas();
+  renderNomesSecoes();
+  showToast('Nome da seção atualizado!', 'success');
 }
 
 function renderPerguntasConfig() {
   const secaoId = document.getElementById('pgSecaoSel').value;
+  document.getElementById('pgNomeSecao').value = SECAO_NOMES[secaoId] || '';
   const lista = PERGUNTAS[secaoId] || [];
   document.getElementById('listaPerguntas').innerHTML = lista.length
     ? lista.map((p, idx) => `<div class="item-row">
         <div style="flex:1">
-          <div class="item-label">${p.texto} <span class="q-peso">P${p.peso}</span> ${p.tipo==='nota' ? '<span class="item-sub">(nota)</span>' : ''}</div>
+          <div class="item-label">
+            ${p.texto} <span class="q-peso">P${p.peso}</span>
+            ${p.tipo==='nota' ? '<span class="item-sub">(nota)</span>' : ''}
+            ${p.invertida ? '<span class="item-sub" style="color:var(--red)">("Não" é conforme)</span>' : ''}
+          </div>
         </div>
         <button class="btn btn-secondary btn-sm" onclick="removerPergunta('${secaoId}', ${idx})">🗑️ Remover</button>
       </div>`).join('')
@@ -787,15 +856,17 @@ async function adicionarPergunta() {
   const texto = document.getElementById('novaPerguntaTexto').value.trim();
   const peso = parseInt(document.getElementById('novaPerguntaPeso').value, 10) || 1;
   const tipo = document.getElementById('novaPerguntaTipo').value;
+  const invertida = document.getElementById('novaPerguntaInvertida').checked;
   if (!texto) { showToast('Digite o texto da pergunta','error'); return; }
 
   if (!PERGUNTAS[secaoId]) PERGUNTAS[secaoId] = [];
   const novoId = 'q' + Date.now();
-  PERGUNTAS[secaoId].push({ id: novoId, texto, peso, tipo });
+  PERGUNTAS[secaoId].push({ id: novoId, texto, peso, tipo, invertida: tipo === 'sn' ? invertida : false });
 
   await salvarPerguntas();
   document.getElementById('novaPerguntaTexto').value = '';
   document.getElementById('novaPerguntaPeso').value = '1';
+  document.getElementById('novaPerguntaInvertida').checked = false;
   showToast('Pergunta adicionada!', 'success');
   renderPerguntasConfig();
 }
@@ -826,6 +897,7 @@ function renderSN(p) {
     <div class="q-label">
       ${p.texto}
       <span class="q-peso ${isHigh?'high':''}">P${p.peso}</span>
+      ${p.invertida ? '<span class="item-sub" style="color:var(--red)">("Não" é conforme)</span>' : ''}
     </div>
     <div class="radio-group">
       <label class="radio-opt" id="opt-sim-${p.id}" onclick="selectOpt('${p.id}','Sim')">
@@ -834,6 +906,9 @@ function renderSN(p) {
       <label class="radio-opt" id="opt-nao-${p.id}" onclick="selectOpt('${p.id}','Não')">
         <input type="radio" name="${p.id}" value="Não"> ❌ Não
       </label>
+    </div>
+    <div class="form-field" style="margin-top:8px">
+      <input type="text" id="coment-${p.id}" placeholder="Comentário (opcional)" oninput="setComentario('${p.id}', this.value)"/>
     </div>
   </div>`;
 }
@@ -846,7 +921,14 @@ function renderNota(p) {
         `<button class="nota-btn" id="nota-btn-${n}" onclick="selectNota(${n})">${n}</button>`
       ).join('')}
     </div>
+    <div class="form-field" style="margin-top:8px">
+      <input type="text" id="coment-${p.id}" placeholder="Comentário (opcional)" oninput="setComentario('${p.id}', this.value)"/>
+    </div>
   </div>`;
+}
+
+function setComentario(qId, valor) {
+  COMENTARIOS[qId] = valor;
 }
 
 function selectOpt(qId, val) {
@@ -948,20 +1030,28 @@ async function enviarAuditoria() {
   let pontosObtidos = 0, pontosMaximos = 0;
   todasPerguntas.forEach(p => {
     if (p.tipo === 'nota') return;
-    const isNegativa = (p.id === 'q9' || p.id === 'q12'); // "foi copiada" e "existe NC" são inversas
     const resp = RESPOSTAS[p.id];
     pontosMaximos += p.peso;
-    const acertou = isNegativa ? resp === 'Não' : resp === 'Sim';
+    const acertou = p.invertida ? resp === 'Não' : resp === 'Sim';
     if (acertou) pontosObtidos += p.peso;
   });
   const conformidade = Math.round((pontosObtidos / pontosMaximos) * 100);
 
+  // Desvio: qualquer pergunta Sim/Não cuja resposta tenha ficado em desacordo com o esperado
+  const houveDesvio = todasPerguntas.some(p => {
+    if (p.tipo === 'nota') return false;
+    const resp = RESPOSTAS[p.id];
+    const esperado = p.invertida ? 'Não' : 'Sim';
+    return resp !== esperado;
+  });
+
   const doc = {
     unidadeId, unidadeNome, parceiro, data, numeroAPR, local, comentarios,
     respostas: { ...RESPOSTAS },
+    comentariosPerguntas: { ...COMENTARIOS },
     nota: RESPOSTAS['q10'] ?? null,
     conformidade,
-    naoConformidade: RESPOSTAS['q12'] === 'Sim',
+    naoConformidade: houveDesvio,
     tecnico: { uid: user.uid, nome: user.displayName || user.email, email: user.email },
     criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
   };
@@ -984,9 +1074,11 @@ function resetForm() {
   document.getElementById('fComentarios').value = '';
   setDefaultDate();
   Object.keys(RESPOSTAS).forEach(k => delete RESPOSTAS[k]);
+  Object.keys(COMENTARIOS).forEach(k => delete COMENTARIOS[k]);
   notaSelecionada = null;
   document.querySelectorAll('.radio-opt').forEach(el => el.className = 'radio-opt');
   document.querySelectorAll('.nota-btn').forEach(b => b.classList.remove('selected'));
+  document.querySelectorAll('[id^="coment-"]').forEach(el => el.value = '');
 }
 
 // ═══════════════════════════════════════════════════════
