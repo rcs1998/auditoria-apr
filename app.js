@@ -181,6 +181,12 @@ async function onLogin(user) {
     showToast('Não foi possível verificar permissões. Conectando offline com nível restrito.', 'error');
   }
   NIVEL_ATUAL = (userDoc && userDoc.exists) ? (userDoc.data().nivel || 'tecnico') : 'tecnico';
+  const precisaTrocarSenha = userDoc && userDoc.exists && userDoc.data().exigeTrocaSenha === true;
+
+  if (precisaTrocarSenha) {
+    mostrarTelaTrocaSenhaObrigatoria(user);
+    return; // bloqueia o restante do carregamento até a senha ser trocada
+  }
 
   if (NIVEL_ATUAL !== 'admin') {
     try {
@@ -203,6 +209,49 @@ async function onLogin(user) {
   await carregarUnidadesForm();
   await carregarAuditorias();
   await sincronizarFilaOffline();
+}
+
+// ═══════════════════════════════════════════════════════
+// 3.1 TROCA OBRIGATÓRIA DE SENHA (primeiro acesso)
+// ═══════════════════════════════════════════════════════
+function mostrarTelaTrocaSenhaObrigatoria(user) {
+  showScreen('s-trocar-senha');
+  document.getElementById('trocaSenhaEmail').textContent = user.email;
+  document.getElementById('novaSenha1').value = '';
+  document.getElementById('novaSenha2').value = '';
+  document.getElementById('trocaSenhaErr').style.display = 'none';
+}
+
+async function confirmarTrocaSenhaObrigatoria() {
+  const senha1 = document.getElementById('novaSenha1').value;
+  const senha2 = document.getElementById('novaSenha2').value;
+  const err = document.getElementById('trocaSenhaErr');
+  err.style.display = 'none';
+
+  if (!senha1 || senha1.length < 6) {
+    err.textContent = 'A nova senha deve ter no mínimo 6 caracteres.';
+    err.style.display = 'block';
+    return;
+  }
+  if (senha1 !== senha2) {
+    err.textContent = 'As senhas não coincidem.';
+    err.style.display = 'block';
+    return;
+  }
+
+  setLoading('btnConfirmarTrocaSenha', true, 'Salvando...');
+  try {
+    const user = auth.currentUser;
+    await user.updatePassword(senha1);
+    await db.collection('usuarios').doc(user.uid).update({ exigeTrocaSenha: false });
+    showToast('Senha atualizada com sucesso!', 'success');
+    await onLogin(user); // recarrega o fluxo normal de login, agora sem a flag
+  } catch(e) {
+    err.textContent = mensagemErroAmigavel(e);
+    err.style.display = 'block';
+  } finally {
+    setLoading('btnConfirmarTrocaSenha', false, 'Salvar e Continuar');
+  }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -230,18 +279,34 @@ async function criarUsuario() {
   if (!senha || senha.length < 6) { showToast('A senha deve ter no mínimo 6 caracteres', 'error'); return; }
 
   setLoading('btnCriarUsuario', true, 'Criando...');
+
+  // Usa uma instância secundária e isolada do Firebase só para criar o usuário.
+  // Isso evita que o SDK troque automaticamente a sessão logada para o usuário
+  // recém-criado — sem isso, criar um usuário deslogava quem estava no painel.
+  const appSecundario = firebase.initializeApp(FIREBASE_CONFIG, 'app-criacao-usuario-' + Date.now());
+  const authSecundario = appSecundario.auth();
+
   try {
-    const cred = await auth.createUserWithEmailAndPassword(email, senha);
+    const cred = await authSecundario.createUserWithEmailAndPassword(email, senha);
     await cred.user.updateProfile({ displayName: nome });
-    await db.collection('usuarios').doc(cred.user.uid).set({ email, nome, nivel, criadoEm: new Date() });
+    await db.collection('usuarios').doc(cred.user.uid).set({
+      email, nome, nivel,
+      exigeTrocaSenha: true, // força a troca de senha no primeiro acesso
+      criadoEm: new Date(),
+    });
+    // Desloga e descarta a instância secundária — ela só existiu para criar a conta.
+    await authSecundario.signOut();
+    await appSecundario.delete();
+
     document.getElementById('novoEmail').value = '';
     document.getElementById('novaSenha').value = '';
     document.getElementById('novoNome').value  = '';
     document.getElementById('novoNivel').value = 'tecnico';
-    showToast('Usuário criado com sucesso!', 'success');
+    showToast('Usuário criado com sucesso! Ele precisará trocar a senha no primeiro acesso.', 'success');
     await renderUsuariosConfig();
   } catch(e) {
     showToast(mensagemErroAmigavel(e), 'error');
+    try { await appSecundario.delete(); } catch(_) { /* já pode ter sido descartado */ }
   } finally {
     setLoading('btnCriarUsuario', false, '+ Criar');
   }
@@ -1039,6 +1104,7 @@ function mensagemErroAmigavel(e) {
     'auth/email-already-in-use': 'Este e-mail já está cadastrado.',
     'auth/weak-password':        'A senha é muito fraca. Use no mínimo 6 caracteres.',
     'auth/network-request-failed': 'Falha de conexão. Verifique sua internet e tente novamente.',
+    'auth/requires-recent-login': 'Por segurança, faça login novamente antes de trocar a senha.',
     'permission-denied':         'Você não tem permissão para realizar esta ação.',
     'unavailable':                'Servidor indisponível no momento. Verifique sua conexão e tente novamente.',
   };
