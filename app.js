@@ -166,6 +166,28 @@ async function fazerLogout() {
   await auth.signOut();
 }
 
+/** Permite que a própria pessoa solicite o e-mail de redefinição de senha,
+ *  direto na tela de login, sem precisar do admin. */
+async function esqueciSenha() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const err = document.getElementById('loginErr');
+  err.style.display = 'none';
+
+  if (!validarEmail(email)) {
+    err.textContent = 'Digite seu e-mail no campo acima antes de solicitar a redefinição.';
+    err.style.display = 'block';
+    return;
+  }
+
+  try {
+    await auth.sendPasswordResetEmail(email);
+    showToast(`Enviamos um link de redefinição para ${email}.`, 'success');
+  } catch(e) {
+    err.textContent = mensagemErroAmigavel(e);
+    err.style.display = 'block';
+  }
+}
+
 async function onLogin(user) {
   showScreen('s-app');
   const initial = (user.displayName || user.email || '?')[0].toUpperCase();
@@ -321,20 +343,40 @@ async function alterarNivelUsuario(uid, nivel) {
   }
 }
 
+/** Envia um e-mail de redefinição de senha para o usuário, via Firebase Auth.
+ *  Limitação técnica do plano gratuito: não existe API client-side para um
+ *  admin definir diretamente a senha de outra pessoa (isso só existe no Admin
+ *  SDK, que exige servidor/Cloud Functions, fora do plano Spark). A única via
+ *  sem servidor é o próprio Firebase enviar um link de redefinição por e-mail
+ *  — a pessoa abre o link e escolhe a nova senha por conta própria.
+ */
+async function redefinirSenhaUsuario(email, nome) {
+  if (!confirm(`Enviar e-mail de redefinição de senha para ${nome} (${email})?`)) return;
+  try {
+    await auth.sendPasswordResetEmail(email);
+    showToast(`E-mail de redefinição enviado para ${email}.`, 'success');
+  } catch(e) {
+    showToast(mensagemErroAmigavel(e), 'error');
+  }
+}
+
 async function renderUsuariosConfig() {
   const snap = await db.collection('usuarios').get();
   const users = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
   document.getElementById('listaUsuarios').innerHTML = users.length
-    ? users.map(u => `<div class="item-row">
+    ? users.map(u => `<div class="item-row" style="flex-wrap:wrap;gap:8px">
         <div>
           <div class="item-label">${escapeHtml(u.nome)}</div>
           <div class="item-sub">${escapeHtml(u.email)}</div>
         </div>
-        <select onchange="alterarNivelUsuario('${u.uid}', this.value)" style="padding:6px 10px;border-radius:8px;border:1px solid var(--slate200,#ccc)">
-          <option value="tecnico" ${u.nivel==='tecnico'?'selected':''}>Técnico</option>
-          <option value="gestor" ${u.nivel==='gestor'?'selected':''}>Gestor</option>
-          <option value="admin" ${u.nivel==='admin'?'selected':''}>Admin</option>
-        </select>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <select onchange="alterarNivelUsuario('${u.uid}', this.value)" style="padding:6px 10px;border-radius:8px;border:1px solid var(--slate200,#ccc)">
+            <option value="tecnico" ${u.nivel==='tecnico'?'selected':''}>Técnico</option>
+            <option value="gestor" ${u.nivel==='gestor'?'selected':''}>Gestor</option>
+            <option value="admin" ${u.nivel==='admin'?'selected':''}>Admin</option>
+          </select>
+          <button class="btn btn-secondary btn-sm" onclick="redefinirSenhaUsuario('${escapeHtml(u.email)}','${escapeHtml(u.nome)}')">🔑 Redefinir senha</button>
+        </div>
       </div>`).join('')
     : '<div style="font-size:13px;color:var(--slate500);padding:8px">Nenhum usuário cadastrado.</div>';
 }
