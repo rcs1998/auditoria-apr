@@ -36,28 +36,28 @@ const ORDEM_SECOES_DEFAULT = [
 
 const PERGUNTAS_DEFAULT = {
   'q-bloco-id': [
-    { id:'q1', texto:'APR possui identificação da atividade?',    peso:1, tipo:'sn', invertida:false },
-    { id:'q2', texto:'Data está preenchida na APR?',              peso:1, tipo:'sn', invertida:false },
-    { id:'q3', texto:'Equipe está listada?',                      peso:1, tipo:'sn', invertida:false },
+    { id:'q1', texto:'APR possui identificação da atividade?',    peso:1, tipo:'sn', invertida:false, ordem:0 },
+    { id:'q2', texto:'Data está preenchida na APR?',              peso:1, tipo:'sn', invertida:false, ordem:1 },
+    { id:'q3', texto:'Equipe está listada?',                      peso:1, tipo:'sn', invertida:false, ordem:2 },
   ],
   'q-bloco-riscos': [
-    { id:'q4', texto:'Riscos foram identificados?',               peso:3, tipo:'sn', invertida:false },
-    { id:'q5', texto:'Os riscos são compatíveis com a atividade?',peso:1, tipo:'sn', invertida:false },
+    { id:'q4', texto:'Riscos foram identificados?',               peso:3, tipo:'sn', invertida:false, ordem:0 },
+    { id:'q5', texto:'Os riscos são compatíveis com a atividade?',peso:1, tipo:'sn', invertida:false, ordem:1 },
   ],
   'q-bloco-controles': [
-    { id:'q6', texto:'Existem controles para os riscos?',         peso:3, tipo:'sn', invertida:false },
-    { id:'q7', texto:'Os controles são específicos (não genéricos)?', peso:1, tipo:'sn', invertida:false },
+    { id:'q6', texto:'Existem controles para os riscos?',         peso:3, tipo:'sn', invertida:false, ordem:0 },
+    { id:'q7', texto:'Os controles são específicos (não genéricos)?', peso:1, tipo:'sn', invertida:false, ordem:1 },
   ],
   'q-bloco-qualidade': [
-    { id:'q8',  texto:'APR está clara e legível?',                peso:1, tipo:'sn', invertida:false },
-    { id:'q9',  texto:'Foi copiada de outra APR sem adaptação?',  peso:1, tipo:'sn', invertida:true },
-    { id:'q10', texto:'Nota geral da APR (0 a 10)', peso:1, tipo:'nota', invertida:false },
+    { id:'q8',  texto:'APR está clara e legível?',                peso:1, tipo:'sn', invertida:false, ordem:0 },
+    { id:'q9',  texto:'Foi copiada de outra APR sem adaptação?',  peso:1, tipo:'sn', invertida:true, ordem:1 },
+    { id:'q10', texto:'Nota geral da APR (0 a 10)', peso:1, tipo:'nota', invertida:false, ordem:2 },
   ],
   'q-bloco-evidencias': [
-    { id:'q11', texto:'Registro / evidência fotográfica presente?', peso:1, tipo:'sn', invertida:false },
+    { id:'q11', texto:'Registro / evidência fotográfica presente?', peso:1, tipo:'sn', invertida:false, ordem:0 },
   ],
   'q-bloco-desvios': [
-    { id:'q12', texto:'Existe não conformidade identificada?', peso:1, tipo:'sn', invertida:true },
+    { id:'q12', texto:'Existe não conformidade identificada?', peso:1, tipo:'sn', invertida:true, ordem:0 },
   ],
 };
 
@@ -394,6 +394,17 @@ async function carregarPerguntas() {
       SECAO_NOMES = dados.nomes || JSON.parse(JSON.stringify(SECAO_NOMES_DEFAULT));
       // "ordem" é novo — se o documento ainda não tiver, monta a partir das chaves existentes.
       ORDEM_SECOES = dados.ordem && dados.ordem.length ? dados.ordem : Object.keys(PERGUNTAS);
+
+      // Compatibilidade com perguntas salvas antes do campo "ordem" existir:
+      // preenche com a posição original no array, para nunca depender de
+      // ordenação implícita de objeto/array vindo do Firestore.
+      let precisaResalvar = false;
+      Object.keys(PERGUNTAS).forEach(secaoId => {
+        PERGUNTAS[secaoId].forEach((p, idx) => {
+          if (p.ordem === undefined) { p.ordem = idx; precisaResalvar = true; }
+        });
+      });
+      if (precisaResalvar) await salvarPerguntas();
     } else {
       PERGUNTAS = JSON.parse(JSON.stringify(PERGUNTAS_DEFAULT));
       SECAO_NOMES = JSON.parse(JSON.stringify(SECAO_NOMES_DEFAULT));
@@ -480,17 +491,22 @@ async function removerSecao() {
 function renderPerguntasConfig() {
   const secaoId = document.getElementById('pgSecaoSel').value;
   document.getElementById('pgNomeSecao').value = SECAO_NOMES[secaoId] || '';
-  const lista = PERGUNTAS[secaoId] || [];
+  const lista = perguntasOrdenadas(secaoId);
   document.getElementById('listaPerguntas').innerHTML = lista.length
     ? lista.map((p, idx) => `<div class="item-row">
         <div style="flex:1">
           <div class="item-label">
+            <span style="color:var(--slate500);font-weight:600">${idx+1}.</span>
             ${escapeHtml(p.texto)} <span class="q-peso">P${p.peso}</span>
             ${p.tipo==='nota' ? '<span class="item-sub">(nota)</span>' : ''}
             ${p.invertida ? '<span class="item-sub" style="color:var(--red)">("Não" é conforme)</span>' : ''}
           </div>
         </div>
-        <button class="btn btn-secondary btn-sm" onclick="removerPergunta('${secaoId}', ${idx})">🗑️ Remover</button>
+        <div style="display:flex;gap:4px">
+          ${idx > 0 ? `<button class="btn-icon" onclick="moverPergunta('${secaoId}','${p.id}',-1)" title="Mover para cima">↑</button>` : ''}
+          ${idx < lista.length-1 ? `<button class="btn-icon" onclick="moverPergunta('${secaoId}','${p.id}',1)" title="Mover para baixo">↓</button>` : ''}
+          <button class="btn btn-secondary btn-sm" onclick="removerPergunta('${secaoId}','${p.id}')">🗑️ Remover</button>
+        </div>
       </div>`).join('')
     : '<div style="font-size:13px;color:var(--slate500);padding:8px">Nenhuma pergunta nesta seção.</div>';
 }
@@ -508,7 +524,8 @@ async function adicionarPergunta() {
 
   if (!PERGUNTAS[secaoId]) PERGUNTAS[secaoId] = [];
   const novoId = 'q' + Date.now();
-  PERGUNTAS[secaoId].push({ id: novoId, texto, peso, tipo, invertida: tipo === 'sn' ? invertida : false });
+  const proximaOrdem = PERGUNTAS[secaoId].length;
+  PERGUNTAS[secaoId].push({ id: novoId, texto, peso, tipo, invertida: tipo === 'sn' ? invertida : false, ordem: proximaOrdem });
 
   await salvarPerguntas();
   document.getElementById('novaPerguntaTexto').value = '';
@@ -519,24 +536,67 @@ async function adicionarPergunta() {
   renderPerguntasConfig();
 }
 
-async function removerPergunta(secaoId, idx) {
+async function removerPergunta(secaoId, perguntaId) {
   if (!confirm('Remover esta pergunta? Essa ação não pode ser desfeita.')) return;
-  PERGUNTAS[secaoId].splice(idx, 1);
+  PERGUNTAS[secaoId] = (PERGUNTAS[secaoId] || []).filter(p => p.id !== perguntaId);
+  renumerarOrdem(secaoId);
   await salvarPerguntas();
   showToast('Pergunta removida!', 'success');
   renderPerguntas();
   renderPerguntasConfig();
 }
 
+/** Move uma pergunta para cima (-1) ou para baixo (+1) dentro da seção,
+ *  trocando seu valor de "ordem" com o vizinho — assim a posição na tela
+ *  fica permanentemente fixada, sem depender de nenhuma ordenação implícita. */
+async function moverPergunta(secaoId, perguntaId, direcao) {
+  const lista = perguntasOrdenadas(secaoId);
+  const posAtual = lista.findIndex(p => p.id === perguntaId);
+  const posVizinho = posAtual + direcao;
+  if (posAtual === -1 || posVizinho < 0 || posVizinho >= lista.length) return;
+
+  const ordemAtual = lista[posAtual].ordem ?? posAtual;
+  const ordemVizinho = lista[posVizinho].ordem ?? posVizinho;
+
+  const real = PERGUNTAS[secaoId];
+  const idxAtualReal = real.findIndex(p => p.id === lista[posAtual].id);
+  const idxVizinhoReal = real.findIndex(p => p.id === lista[posVizinho].id);
+  real[idxAtualReal].ordem = ordemVizinho;
+  real[idxVizinhoReal].ordem = ordemAtual;
+
+  await salvarPerguntas();
+  renderPerguntas();
+  renderPerguntasConfig();
+}
+
+/** Reatribui valores de "ordem" sequenciais (0,1,2...) após uma remoção,
+ *  evitando buracos na sequência que poderiam causar comportamento estranho
+ *  em comparações futuras. */
+function renumerarOrdem(secaoId) {
+  const lista = perguntasOrdenadas(secaoId);
+  lista.forEach((p, idx) => {
+    const real = PERGUNTAS[secaoId].find(x => x.id === p.id);
+    if (real) real.ordem = idx;
+  });
+}
+
 /** Gera os blocos do formulário (cabeçalho + perguntas) dinamicamente,
  *  na ordem definida por ORDEM_SECOES, dentro do container fixo do HTML. */
+/** Retorna as perguntas de uma seção sempre na mesma ordem, baseada no campo
+ *  "ordem" salvo em cada pergunta — nunca depende da ordem "natural" de um
+ *  array ou objeto vindo do Firestore, que não é garantida entre leituras. */
+function perguntasOrdenadas(secaoId) {
+  const lista = PERGUNTAS[secaoId] || [];
+  return [...lista].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+}
+
 function renderPerguntas() {
   const container = document.getElementById('secoes-dinamicas-container');
   if (!container) return;
 
   container.innerHTML = ORDEM_SECOES.map((secaoId, idx) => {
     const nome = SECAO_NOMES[secaoId] || secaoId;
-    const perguntas = PERGUNTAS[secaoId] || [];
+    const perguntas = perguntasOrdenadas(secaoId);
     const ehUltima = idx === ORDEM_SECOES.length - 1;
     const corFundo = ehUltima ? 'background:var(--red)' : '';
     return `
@@ -678,7 +738,7 @@ function validarFormularioAuditoria() {
   if (!numeroAPR)  return 'Informe o número da APR.';
   if (!local)      return 'Informe o local / frente de serviço.';
 
-  const todasPerguntas = Object.values(PERGUNTAS).flat();
+  const todasPerguntas = ORDEM_SECOES.flatMap(secaoId => perguntasOrdenadas(secaoId));
   for (const p of todasPerguntas) {
     if (RESPOSTAS[p.id] === undefined) return `Responda a pergunta: "${p.texto}"`;
   }
@@ -696,7 +756,7 @@ async function enviarAuditoria() {
   const local      = document.getElementById('fLocal').value.trim();
   const comentarios= document.getElementById('fComentarios').value.trim();
 
-  const todasPerguntas = Object.values(PERGUNTAS).flat();
+  const todasPerguntas = ORDEM_SECOES.flatMap(secaoId => perguntasOrdenadas(secaoId));
   const unidadeNome = unidades.find(u => u.id === unidadeId)?.nome || unidadeId;
   const user = auth.currentUser;
 
@@ -956,7 +1016,7 @@ function abrirDetalheAuditoria(id) {
   // Monta a lista de perguntas na ordem das seções salvas, mostrando o que
   // foi respondido e o comentário (se houver) — tudo somente leitura.
   const blocosHtml = ORDEM_SECOES.map(secaoId => {
-    const perguntasDaSecao = PERGUNTAS[secaoId] || [];
+    const perguntasDaSecao = perguntasOrdenadas(secaoId);
     const linhasRespondidas = perguntasDaSecao
       .filter(p => respostas[p.id] !== undefined)
       .map(p => {
@@ -1264,10 +1324,51 @@ function mensagemErroAmigavel(e) {
 function registrarServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('service-worker.js').catch(err => {
+    navigator.serviceWorker.register('service-worker.js').then(registro => {
+      // Checa ativamente se existe uma versão mais nova do service worker
+      // assim que a página carrega — não espera o navegador decidir checar por conta própria.
+      registro.update().catch(() => {});
+
+      // Quando uma versão nova é instalada e fica pronta, recarrega a página
+      // automaticamente para garantir que o app.js/index.html/style.css mais
+      // recentes entrem em uso imediatamente, sem depender do usuário saber
+      // que precisa atualizar manualmente.
+      registro.addEventListener('updatefound', () => {
+        const novoWorker = registro.installing;
+        if (!novoWorker) return;
+        novoWorker.addEventListener('statechange', () => {
+          if (novoWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            novoWorker.postMessage({ tipo: 'ATIVAR_AGORA' });
+          }
+        });
+      });
+    }).catch(err => {
       console.warn('Falha ao registrar o Service Worker:', err);
     });
+
+    // Quando o novo service worker assume o controle da página, recarrega
+    // uma única vez para puxar a versão mais recente de todos os arquivos.
+    let jaRecarregou = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (jaRecarregou) return;
+      jaRecarregou = true;
+      window.location.reload();
+    });
   });
+}
+
+/** Botão manual de "Forçar atualização" — útil quando o usuário percebe
+ *  que uma função nova não está disponível e não quer esperar o navegador
+ *  detectar a atualização por conta própria. */
+async function forcarAtualizacaoApp() {
+  if (!('serviceWorker' in navigator)) { window.location.reload(); return; }
+  try {
+    const registros = await navigator.serviceWorker.getRegistrations();
+    for (const registro of registros) await registro.unregister();
+    const nomesCache = await caches.keys();
+    await Promise.all(nomesCache.map(nome => caches.delete(nome)));
+  } catch(e) { /* segue para o reload mesmo se algo falhar */ }
+  window.location.reload(true);
 }
 
 function monitorarConexao() {
