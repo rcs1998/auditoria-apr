@@ -125,6 +125,7 @@ window.onload = () => {
   initFirebase(FIREBASE_CONFIG);
   registrarServiceWorker();
   monitorarConexao();
+  aplicarPreferenciaSidebar();
 };
 
 function setDefaultDate() {
@@ -845,7 +846,8 @@ function renderDash() {
         borderColor:emps.map(e=>corConf(confMed[e])),
         borderWidth:2, borderRadius:8
       }]},
-      options:{ plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.raw}%`}}},
+      options:{ responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.raw}%`}}},
         scales:{ y:{min:0,max:100,grid:{color:'#F1F5F9'},ticks:{callback:v=>v+'%',font:{family:'Outfit',size:12}}},
                  x:{grid:{display:false},ticks:{font:{family:'Outfit',size:12}}} }, animation:{duration:700} }
     });
@@ -860,7 +862,8 @@ function renderDash() {
         backgroundColor:CORES_EMPRESA.slice(0,emps.length),
         borderWidth:3, borderColor:'#fff'
       }]},
-      options:{ plugins:{ legend:{position:'bottom',labels:{font:{family:'Outfit',size:11},padding:10}},
+      options:{ responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{position:'bottom',labels:{font:{family:'Outfit',size:11},padding:10}},
         tooltip:{callbacks:{label:c=>` ${c.label}: ${c.raw} NC`}} }, animation:{duration:700} }
     });
   }
@@ -887,7 +890,8 @@ function renderDash() {
         borderWidth:2.5, pointRadius:4, tension:0.3, spanGaps:true,
         data:keys.map(k=>{ const cs=meses[k].emps[emp]; return cs&&cs.length?Math.round(cs.reduce((a,b)=>a+b,0)/cs.length):null; })
       }))},
-      options:{ plugins:{legend:{position:'bottom',labels:{font:{family:'Outfit',size:11},padding:12}},
+      options:{ responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{position:'bottom',labels:{font:{family:'Outfit',size:11},padding:12}},
         tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${c.raw}%`}}},
         scales:{ y:{min:0,max:100,grid:{color:'#F1F5F9'},ticks:{callback:v=>v+'%',font:{family:'Outfit',size:12}}},
                  x:{grid:{display:false},ticks:{font:{family:'Outfit',size:12}}} }, animation:{duration:700} }
@@ -1171,6 +1175,26 @@ async function goPage(id, btn) {
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
+}
+
+const SIDEBAR_COLLAPSED_KEY = 'aprSidebarCollapsed';
+
+/** Recolhe/expande a sidebar no desktop, deixando mais espaço de tela
+ *  para o conteúdo. A preferência é lembrada entre sessões. */
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const main = document.getElementById('mainContent');
+  const collapsed = sidebar.classList.toggle('collapsed');
+  main.classList.toggle('sidebar-collapsed', collapsed);
+  localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0');
+}
+
+function aplicarPreferenciaSidebar() {
+  const collapsed = localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1';
+  if (collapsed) {
+    document.getElementById('sidebar').classList.add('collapsed');
+    document.getElementById('mainContent').classList.add('sidebar-collapsed');
+  }
 }
 
 // ═══════════════════════════════════════════════════════
