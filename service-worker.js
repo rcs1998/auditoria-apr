@@ -1,286 +1,118 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Auditoria APR</title>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#1B6B2E">
-<link rel="icon" type="image/x-icon" href="favicon.ico">
-<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
-<link rel="stylesheet" href="style.css">
-</head>
-<body>
+// ═══════════════════════════════════════════════════════
+// SERVICE WORKER — Auditoria APR
+// Cacheia o "app shell" (HTML/CSS/JS/fontes/ícones) para permitir
+// instalação no celular e abertura rápida/offline da interface.
+// Chamadas ao Firebase (Firestore/Auth) NÃO são interceptadas —
+// a app já tem sua própria lógica de fila offline para isso.
+// ═══════════════════════════════════════════════════════
 
-<!-- ══════════════════════════════════════
-     TELA: LOGIN
-══════════════════════════════════════ -->
-<div id="s-login" class="screen active" style="align-items:center;justify-content:center;padding:40px 20px;background:var(--g900)">
-  <div class="login-box">
-    <div class="login-logo">
-      <div class="icon"><img src="icons/icon-192.png" alt="Auditoria APR" style="width:36px;height:36px;border-radius:8px"></div>
-      <h1>Auditoria APR</h1>
-      <p>Gestão de Segurança · Parceiros</p>
-    </div>
-    <div class="login-err" id="loginErr"></div>
-    <div class="form-field"><label>E-mail</label><input type="email" id="loginEmail" placeholder="seu@email.com"/></div>
-    <div class="form-field"><label>Senha</label><input type="password" id="loginSenha" placeholder="••••••••"/></div>
-    <button class="btn btn-primary" id="btnLogin" onclick="fazerLogin()">Entrar</button>
-    <a href="instalar.html" style="display:block;text-align:center;margin-top:14px;font-size:12.5px;color:var(--slate500);text-decoration:none">📲 Como instalar o app no celular</a>
-  </div>
-</div>
+const CACHE_NAME = 'auditoria-apr-v4';
 
-<!-- ══════════════════════════════════════
-     TELA: APP (Sidebar + Main)
-══════════════════════════════════════ -->
-<div id="s-app" class="screen">
+const ASSETS_ESTATICOS = [
+  './',
+  './index.html',
+  './instalar.html',
+  './style.css',
+  './app.js',
+  './manifest.json',
+  './favicon.ico',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/icon-maskable-192.png',
+  './icons/icon-maskable-512.png',
+  './icons/favicon-32.png',
+];
 
-  <!-- SIDEBAR -->
-  <aside class="sidebar">
-    <div class="sb-logo">
-      <div class="sb-logo-icon"><img src="icons/icon-192.png" alt="Auditoria APR" style="width:24px;height:24px;border-radius:5px"></div>
-      <div class="sb-logo-title">Auditoria APR</div>
-      <div class="sb-logo-sub">Gestão de Segurança</div>
-    </div>
-    <nav class="sb-nav">
-      <div class="sb-section-label">Auditorias</div>
-      <button class="nav-btn active" onclick="goPage('formulario',this)"><span class="nav-icon">📝</span><span>Nova Auditoria</span></button>
-      <button class="nav-btn" id="nav-dashboard" onclick="goPage('dashboard',this)"><span class="nav-icon">📊</span><span>Dashboard</span></button>
-      <button class="nav-btn" id="nav-registros" onclick="goPage('registros',this)"><span class="nav-icon">📋</span><span>Registros</span></button>
-      <button class="nav-btn" id="nav-perguntas" onclick="goPage('perguntas',this)"><span class="nav-icon">❓</span><span>Perguntas</span></button>
-      <button class="nav-btn" id="nav-usuarios" onclick="goPage('usuarios',this)"><span class="nav-icon">👥</span><span>Usuários</span></button>
-      <div class="sb-section-label" id="nav-config-label" style="display:none">Admin</div>
-      <button class="nav-btn" id="nav-config" onclick="goPage('config',this)" style="display:none"><span class="nav-icon">⚙️</span><span>Configurações</span></button>
-    </nav>
-    <div class="sb-bottom">
-      <div class="user-pill">
-        <div class="user-avatar" id="userAvatar">?</div>
-        <div class="user-name" id="userName">...</div>
-        <button class="btn-logout" onclick="fazerLogout()" title="Sair">↩</button>
-      </div>
-    </div>
-  </aside>
+// Domínios que NUNCA devem ser cacheados ou interceptados pelo SW
+// (Firebase, Chart.js, fontes do Google — sempre buscar da rede/CDN).
+const DOMINIOS_IGNORADOS = [
+  'firestore.googleapis.com',
+  'firebaseapp.com',
+  'googleapis.com',
+  'gstatic.com',
+  'cdnjs.cloudflare.com',
+  'fonts.googleapis.com',
+  'fonts.gstatic.com',
+];
 
-  <!-- MAIN -->
-  <div class="main">
-    <div class="topbar">
-      <div class="topbar-mobile-logo">
-        <img src="icons/icon-192.png" alt="" class="topbar-mobile-icon">
-        <span>Auditoria APR</span>
-      </div>
-      <div class="topbar-title" id="topbarTitle">Nova Auditoria</div>
-      <div class="topbar-mobile-user">
-        <div class="user-avatar" id="userAvatarMobile">?</div>
-        <button class="btn-logout" onclick="fazerLogout()" title="Sair">↩</button>
-      </div>
-    </div>
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_ESTATICOS))
+  );
+  self.skipWaiting();
+});
 
-    <!-- ── PAGE: FORMULÁRIO ── -->
-    <div class="page-content" id="page-formulario">
-      <div class="card" style="max-width:720px">
-        <div class="card-title">📝 Registro de Auditoria de APR</div>
+// Permite que a página force a ativação imediata de um service worker novo
+// que esteja esperando — usado pela função registrarServiceWorker() no app.js.
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.tipo === 'ATIVAR_AGORA') {
+    self.skipWaiting();
+  }
+});
 
-        <!-- Identificação -->
-        <div class="form-section-header">1. Identificação</div>
-        <div class="form-field">
-          <label>Unidade *</label>
-          <select id="fUnidade" onchange="carregarParceiros()">
-            <option value="">Selecione a unidade...</option>
-          </select>
-        </div>
-        <div class="form-field">
-          <label>Empresa Parceira *</label>
-          <select id="fParceiro">
-            <option value="">Selecione a unidade primeiro...</option>
-          </select>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div class="form-field"><label>Data da Auditoria *</label><input type="date" id="fData"/></div>
-          <div class="form-field"><label>Número da APR *</label><input type="text" id="fNumeroAPR" placeholder="APR-2026-001"/></div>
-        </div>
-        <div class="form-field"><label>Local / Frente de Serviço *</label><input type="text" id="fLocal" placeholder="Ex: Manutenção Linha 3"/></div>
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((nomes) =>
+      Promise.all(
+        nomes
+          .filter((nome) => nome !== CACHE_NAME)
+          .map((nome) => caches.delete(nome))
+      )
+    )
+  );
+  self.clients.claim();
+});
 
-        <!-- Seções dinâmicas (geradas via JS a partir de config/perguntas) -->
-        <div id="secoes-dinamicas-container"></div>
+// Arquivos de CÓDIGO (HTML/CSS/JS): mudam com frequência a cada atualização
+// do sistema. Usar network-first garante que a versão mais nova sempre seja
+// exibida quando há internet — o cache só entra em ação se a rede falhar.
+const ARQUIVOS_CODIGO = ['.html', '.css', '.js', '.json'];
 
-        <div class="form-field" style="margin-top:16px">
-          <label>Comentários Finais</label>
-          <textarea id="fComentarios" placeholder="Observações gerais sobre a auditoria..."></textarea>
-        </div>
+self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
 
-        <div style="margin-top:8px">
-          <button class="btn btn-primary" id="btnEnviarAuditoria" onclick="enviarAuditoria()">✅ Enviar Auditoria</button>
-        </div>
-      </div>
-    </div>
+  // Não intercepta requisições para Firebase/CDNs externos —
+  // deixa passar direto para a rede, sem cache do service worker.
+  if (DOMINIOS_IGNORADOS.some((dominio) => url.hostname.includes(dominio))) {
+    return;
+  }
 
-    <!-- ── PAGE: DASHBOARD ── -->
-    <div class="page-content" id="page-dashboard" style="display:none">
-      <div id="dashLoading" class="dash-loading" style="display:none">
-        <div class="spinner"></div><span>Carregando dados...</span>
-      </div>
-      <div class="dash-filters">
-        <span class="filter-label">Unidade:</span>
-        <select id="dFiltroUnidade" onchange="renderDash()"><option value="">Todas</option></select>
-        <span class="filter-label">Empresa:</span>
-        <select id="dFiltroParceiro" onchange="renderDash()"><option value="">Todas</option></select>
-        <span class="filter-label">Período:</span>
-        <select id="dFiltroPeriodo" onchange="renderDash()">
-          <option value="">Todo período</option>
-          <option value="30">Últimos 30 dias</option>
-          <option value="90">Últimos 90 dias</option>
-          <option value="180">Últimos 6 meses</option>
-        </select>
-        <button class="btn-refresh" id="btnAtualizarDash" onclick="atualizarDashboard()">↻ Atualizar</button>
-      </div>
+  // Apenas GET é cacheável.
+  if (event.request.method !== 'GET') return;
 
-      <div class="kpi-grid">
-        <div class="kpi-card"><div class="kpi-emoji">✅</div><div class="kpi-label">Conformidade Geral</div><div class="kpi-value" id="dKpiConf">—</div><div class="kpi-sub">média ponderada</div></div>
-        <div class="kpi-card"><div class="kpi-emoji">📋</div><div class="kpi-label">Auditorias</div><div class="kpi-value" id="dKpiAud">—</div><div class="kpi-sub">no período</div></div>
-        <div class="kpi-card"><div class="kpi-emoji">⚠️</div><div class="kpi-label">Não Conformidades</div><div class="kpi-value" id="dKpiNC">—</div><div class="kpi-sub">abertas</div></div>
-        <div class="kpi-card"><div class="kpi-emoji">🏆</div><div class="kpi-label">Melhor Empresa</div><div class="kpi-value" id="dKpiMelhor" style="font-size:16px;padding-top:8px">—</div><div class="kpi-sub" id="dKpiMelhorSub"></div></div>
-      </div>
+  const ehArquivoDeCodigo = ARQUIVOS_CODIGO.some((ext) => url.pathname.endsWith(ext)) || url.pathname.endsWith('/');
 
-      <div class="grid-2">
-        <div class="card"><div class="card-title">% Conformidade por Empresa <span class="card-tag">Meta ≥ 90%</span></div><canvas id="cBarras" height="220"></canvas></div>
-        <div class="card"><div class="card-title">Não Conformidades</div><canvas id="cNC" height="220"></canvas></div>
-      </div>
-      <div class="card"><div class="card-title">Evolução Mensal da Conformidade</div><canvas id="cLinha" height="280"></canvas></div>
-    </div>
+  if (ehArquivoDeCodigo) {
+    // NETWORK-FIRST: tenta a rede primeiro; só usa o cache se estiver offline.
+    event.respondWith(
+      fetch(event.request)
+        .then((respostaRede) => {
+          if (respostaRede && respostaRede.status === 200) {
+            const clone = respostaRede.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return respostaRede;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
 
-    <!-- ── PAGE: REGISTROS ── -->
-    <div class="page-content" id="page-registros" style="display:none">
-      <div class="card">
-        <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-          <span>Registros de Auditoria <span class="card-tag" id="cntReg">0</span></span>
-          <button class="btn btn-secondary btn-sm" id="btnExportarCsv" onclick="exportarRegistrosCSV()">⬇️ Exportar CSV</button>
-        </div>
-        <div class="tbl-wrap">
-          <table>
-            <thead><tr><th>Data</th><th>Unidade</th><th>Empresa</th><th>APR</th><th>Local</th><th>Nota</th><th>Conf.</th><th>NC</th></tr></thead>
-            <tbody id="tbodyReg"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+  // Demais arquivos (ícones, imagens): CACHE-FIRST com atualização em segundo
+  // plano — eles raramente mudam, então prioriza velocidade de abertura.
+  event.respondWith(
+    caches.match(event.request).then((respostaCache) => {
+      const buscaRede = fetch(event.request)
+        .then((respostaRede) => {
+          if (respostaRede && respostaRede.status === 200) {
+            const clone = respostaRede.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return respostaRede;
+        })
+        .catch(() => respostaCache);
 
-    <!-- ── PAGE: CONFIG ── -->
-    <div class="page-content" id="page-config" style="display:none">
-      <div class="grid-2" style="max-width:900px">
-
-        <!-- Unidades -->
-        <div class="card">
-          <div class="config-section">
-            <h3>🏭 Unidades</h3>
-            <div class="items-list" id="listaUnidades"></div>
-            <div class="add-row">
-              <div class="form-field"><label>Nome da Unidade</label><input type="text" id="novaUnidade" placeholder="Ex: Unidade São Paulo"/></div>
-              <button class="btn btn-primary btn-sm" onclick="adicionarUnidade()">+ Adicionar</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Parceiros -->
-        <div class="card">
-          <div class="config-section">
-            <h3>🤝 Empresas Parceiras</h3>
-            <div class="form-field" style="margin-bottom:14px">
-              <label>Selecionar Unidade</label>
-              <select id="cfgUnidadeSel" onchange="renderParceirosConfig()">
-                <option value="">Selecione uma unidade...</option>
-              </select>
-            </div>
-            <div class="items-list" id="listaParceiros"></div>
-            <div class="add-row" id="addParcRow" style="display:none">
-              <div class="form-field"><label>Nome do Parceiro</label><input type="text" id="novoParceiro" placeholder="Ex: Empresa XYZ"/></div>
-              <button class="btn btn-primary btn-sm" onclick="adicionarParceiro()">+ Adicionar</button>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- ── PAGE: PERGUNTAS ── -->
-    <div class="page-content" id="page-perguntas" style="display:none">
-      <div class="card" style="max-width:820px">
-        <div class="config-section">
-          <h3>❓ Perguntas do Formulário</h3>
-          <p style="font-size:13px;color:var(--slate500);margin-bottom:14px">Edite o nome da seção, crie, edite ou remova seções e perguntas.</p>
-
-          <div class="add-row" style="margin-bottom:10px">
-            <div class="form-field" style="flex:2">
-              <label>Seção</label>
-              <select id="pgSecaoSel" onchange="renderPerguntasConfig()"></select>
-            </div>
-            <button class="btn-icon del" onclick="removerSecao()" title="Remover esta seção">🗑️</button>
-          </div>
-
-          <div class="add-row" style="margin-bottom:8px">
-            <div class="form-field" style="flex:2"><label>Nome da Seção</label><input type="text" id="pgNomeSecao" placeholder="Ex: Identificação de Riscos"/></div>
-            <button class="btn btn-secondary btn-sm" onclick="salvarNomeSecao()">💾 Salvar Nome</button>
-          </div>
-
-          <div class="add-row" style="margin-bottom:18px">
-            <div class="form-field" style="flex:2"><label>Nova Seção</label><input type="text" id="pgNovaSecaoNome" placeholder="Ex: Equipamentos de Proteção"/></div>
-            <button class="btn btn-primary btn-sm" onclick="adicionarSecao()">+ Criar Seção</button>
-          </div>
-
-          <div class="items-list" id="listaPerguntas"></div>
-
-          <div class="add-row" style="flex-wrap:wrap">
-            <div class="form-field" style="flex:2;min-width:220px"><label>Texto da Pergunta</label><input type="text" id="novaPerguntaTexto" placeholder="Ex: Os EPIs estão descritos?"/></div>
-            <div class="form-field"><label>Peso</label><input type="number" id="novaPerguntaPeso" value="1" min="1" max="5" style="width:70px"/></div>
-            <div class="form-field"><label>Tipo</label>
-              <select id="novaPerguntaTipo"><option value="sn">Sim/Não</option><option value="nota">Nota (0-10)</option></select>
-            </div>
-            <div class="form-field" style="justify-content:flex-end">
-              <label style="display:flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer">
-                <input type="checkbox" id="novaPerguntaInvertida" style="width:auto"/>
-                Resposta inversa ("Não" é conforme)
-              </label>
-            </div>
-            <button class="btn btn-primary btn-sm" onclick="adicionarPergunta()">+ Adicionar</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── PAGE: USUÁRIOS ── -->
-    <div class="page-content" id="page-usuarios" style="display:none">
-      <div class="card" style="max-width:820px">
-        <div class="config-section">
-          <h3>👥 Usuários</h3>
-          <div class="items-list" id="listaUsuarios"></div>
-          <div class="add-row">
-            <div class="form-field"><label>E-mail</label><input type="email" id="novoEmail" placeholder="usuario@empresa.com"/></div>
-            <div class="form-field"><label>Senha</label><input type="password" id="novaSenha" placeholder="Mínimo 6 caracteres"/></div>
-            <div class="form-field"><label>Nome</label><input type="text" id="novoNome" placeholder="Nome do usuário"/></div>
-            <div class="form-field">
-              <label>Nível de Acesso</label>
-              <select id="novoNivel">
-                <option value="tecnico">Técnico</option>
-                <option value="gestor">Gestor</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
-            <button class="btn btn-primary btn-sm" id="btnCriarUsuario" onclick="criarUsuario()">+ Criar</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-  </div><!-- /main -->
-</div><!-- /s-app -->
-
-<!-- TOAST -->
-<div class="toast" id="toast"></div>
-
-<script src="app.js"></script>
-</body>
-</html>
+      return respostaCache || buscaRede;
+    })
+  );
+});
