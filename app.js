@@ -903,23 +903,102 @@ function renderDash() {
 function renderRegistros() {
   const dados = [...AUDITORIAS].sort((a,b)=>{ const da=new Date(a.data||0),db2=new Date(b.data||0); return db2-da; });
   document.getElementById('cntReg').textContent = dados.length + ' registros';
+  const podeExcluir = NIVEL_ATUAL === 'gestor' || NIVEL_ATUAL === 'admin';
+
   document.getElementById('tbodyReg').innerHTML = dados.length ? dados.map(a => {
     const isNC = a.naoConformidade;
     const n = a.nota != null ? +a.nota : null;
     const nc = n!=null?(n>=8?'#16A34A':n>=6?'#D97706':'#DC2626'):'#64748B';
     const conf = a.conformidade != null ? a.conformidade : '—';
     const corConf2 = typeof conf==='number' ? corConf(conf) : '#64748B';
-    return `<tr>
+    const botaoExcluir = podeExcluir
+      ? `<button class="btn-icon del" onclick="event.stopPropagation(); excluirAuditoria('${a.id}')" title="Excluir">🗑</button>`
+      : '';
+    return `<tr onclick="abrirDetalheAuditoria('${a.id}')" style="cursor:pointer">
       <td>${a.data || '—'}</td>
       <td>${escapeHtml(a.unidadeNome || '—')}</td>
       <td><strong>${escapeHtml(a.parceiro || '—')}</strong></td>
       <td>${escapeHtml(a.numeroAPR || '—')}</td>
       <td>${escapeHtml(a.local || '—')}</td>
+      <td>${escapeHtml(a.tecnico?.nome || '—')}</td>
       <td><span style="font-weight:800;color:${nc}">${n!=null?n+'/10':'—'}</span></td>
       <td><span style="font-weight:700;color:${corConf2}">${typeof conf==='number'?conf+'%':'—'}</span></td>
       <td><span class="badge ${isNC?'b-nc':'b-ok'}">${isNC?'⚠ NC':'✓ OK'}</span></td>
+      <td>${botaoExcluir}</td>
     </tr>`;
-  }).join('') : `<tr><td colspan="8"><div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Nenhuma auditoria registrada ainda</div></div></td></tr>`;
+  }).join('') : `<tr><td colspan="10"><div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Nenhuma auditoria registrada ainda</div></div></td></tr>`;
+}
+
+async function excluirAuditoria(id) {
+  if (!confirm('Excluir esta auditoria? Essa ação não pode ser desfeita.')) return;
+  try {
+    await db.collection('auditorias').doc(id).delete();
+    showToast('Auditoria excluída com sucesso!', 'success');
+    await carregarAuditorias();
+  } catch(e) {
+    showToast(mensagemErroAmigavel(e), 'error');
+  }
+}
+
+/** Abre um modal somente leitura com todos os detalhes da auditoria:
+ *  dados gerais, todas as respostas (com seção e pergunta) e comentários. */
+function abrirDetalheAuditoria(id) {
+  const a = AUDITORIAS.find(x => x.id === id);
+  if (!a) return;
+
+  const respostas = a.respostas || {};
+  const comentarios = a.comentariosPerguntas || {};
+
+  // Monta a lista de perguntas na ordem das seções salvas, mostrando o que
+  // foi respondido e o comentário (se houver) — tudo somente leitura.
+  const blocosHtml = ORDEM_SECOES.map(secaoId => {
+    const perguntasDaSecao = PERGUNTAS[secaoId] || [];
+    const linhasRespondidas = perguntasDaSecao
+      .filter(p => respostas[p.id] !== undefined)
+      .map(p => {
+        const resp = respostas[p.id];
+        const coment = comentarios[p.id];
+        const corResp = p.tipo === 'nota'
+          ? 'var(--slate700)'
+          : (resp === (p.invertida ? 'Não' : 'Sim') ? 'var(--g700)' : 'var(--red)');
+        return `<div class="detalhe-pergunta">
+          <div class="detalhe-pergunta-texto">${escapeHtml(p.texto)}</div>
+          <div class="detalhe-pergunta-resp" style="color:${corResp}">${escapeHtml(String(resp))}${p.tipo==='nota'?'/10':''}</div>
+          ${coment ? `<div class="detalhe-pergunta-coment">💬 ${escapeHtml(coment)}</div>` : ''}
+        </div>`;
+      }).join('');
+
+    if (!linhasRespondidas) return '';
+    return `<div class="detalhe-secao">
+      <div class="detalhe-secao-titulo">${escapeHtml(SECAO_NOMES[secaoId] || secaoId)}</div>
+      ${linhasRespondidas}
+    </div>`;
+  }).join('');
+
+  const conf = a.conformidade != null ? a.conformidade + '%' : '—';
+  const nota = a.nota != null ? a.nota + '/10' : '—';
+
+  document.getElementById('detalheAuditoriaConteudo').innerHTML = `
+    <div class="detalhe-header-grid">
+      <div><span class="detalhe-label">Data</span><br>${a.data || '—'}</div>
+      <div><span class="detalhe-label">Unidade</span><br>${escapeHtml(a.unidadeNome || '—')}</div>
+      <div><span class="detalhe-label">Empresa Parceira</span><br>${escapeHtml(a.parceiro || '—')}</div>
+      <div><span class="detalhe-label">Número da APR</span><br>${escapeHtml(a.numeroAPR || '—')}</div>
+      <div><span class="detalhe-label">Local</span><br>${escapeHtml(a.local || '—')}</div>
+      <div><span class="detalhe-label">Técnico</span><br>${escapeHtml(a.tecnico?.nome || '—')}</div>
+      <div><span class="detalhe-label">Conformidade</span><br><strong style="color:${corConf(a.conformidade||0)}">${conf}</strong></div>
+      <div><span class="detalhe-label">Nota Geral</span><br>${nota}</div>
+      <div><span class="detalhe-label">Não Conformidade</span><br><span class="badge ${a.naoConformidade?'b-nc':'b-ok'}">${a.naoConformidade?'⚠ Sim':'✓ Não'}</span></div>
+    </div>
+    ${a.comentarios ? `<div class="detalhe-comentario-geral"><span class="detalhe-label">Comentário geral</span><br>${escapeHtml(a.comentarios)}</div>` : ''}
+    <div class="detalhe-perguntas-wrap">${blocosHtml || '<p style="color:var(--slate500);font-size:13px">Nenhuma resposta registrada.</p>'}</div>
+  `;
+
+  document.getElementById('modalDetalheAuditoria').classList.add('active');
+}
+
+function fecharDetalheAuditoria() {
+  document.getElementById('modalDetalheAuditoria').classList.remove('active');
 }
 
 function exportarRegistrosCSV() {
