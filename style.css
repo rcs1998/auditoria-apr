@@ -480,3 +480,14 @@ code{font-family:monospace;font-size:12px;background:var(--g50);color:var(--g700
   .chart-container{ height:220px }
   .chart-container.chart-tall{ height:260px }
 }
+
+/* ── Botão de forçar atualização do sistema (limpa cache/SW) ── */
+.btn-update-app{
+  width:100%; margin-top:10px; padding:8px; border:none; border-radius:8px;
+  background:rgba(255,255,255,.06); color:rgba(255,255,255,.5);
+  font-family:var(--f); font-size:11px; font-weight:600; cursor:pointer;
+  transition:all .15s;
+}
+.btn-update-app:hover{ background:rgba(255,255,255,.12); color:rgba(255,255,255,.85) }
+.sidebar.collapsed .btn-update-app{ font-size:0; padding:8px 0 }
+.sidebar.collapsed .btn-update-app::before{ content:'↻'; font-size:14px }
