@@ -64,7 +64,8 @@
 <div id="s-app" class="screen">
 
   <!-- SIDEBAR -->
-  <aside class="sidebar">
+  <aside class="sidebar" id="sidebar">
+    <button class="sb-toggle" id="sbToggle" onclick="toggleSidebar()" title="Recolher/expandir menu">‹</button>
     <div class="sb-logo">
       <div class="sb-logo-icon"><img src="icons/icon-192.png" alt="Auditoria APR" style="width:24px;height:24px;border-radius:5px"></div>
       <div class="sb-logo-title">Auditoria APR</div>
@@ -90,7 +91,7 @@
   </aside>
 
   <!-- MAIN -->
-  <div class="main">
+  <div class="main" id="mainContent">
     <div class="topbar">
       <div class="topbar-mobile-logo">
         <img src="icons/icon-192.png" alt="" class="topbar-mobile-icon">
@@ -170,10 +171,10 @@
       </div>
 
       <div class="grid-2">
-        <div class="card"><div class="card-title">% Conformidade por Empresa <span class="card-tag">Meta ≥ 90%</span></div><canvas id="cBarras" height="220"></canvas></div>
-        <div class="card"><div class="card-title">Não Conformidades</div><canvas id="cNC" height="220"></canvas></div>
+        <div class="card"><div class="card-title">% Conformidade por Empresa <span class="card-tag">Meta ≥ 90%</span></div><div class="chart-container"><canvas id="cBarras"></canvas></div></div>
+        <div class="card"><div class="card-title">Não Conformidades</div><div class="chart-container"><canvas id="cNC"></canvas></div></div>
       </div>
-      <div class="card"><div class="card-title">Evolução Mensal da Conformidade</div><canvas id="cLinha" height="280"></canvas></div>
+      <div class="card"><div class="card-title">Evolução Mensal da Conformidade</div><div class="chart-container chart-tall"><canvas id="cLinha"></canvas></div></div>
     </div>
 
     <!-- ── PAGE: REGISTROS ── -->
@@ -185,7 +186,7 @@
         </div>
         <div class="tbl-wrap">
           <table>
-            <thead><tr><th>Data</th><th>Unidade</th><th>Empresa</th><th>APR</th><th>Local</th><th>Nota</th><th>Conf.</th><th>NC</th></tr></thead>
+            <thead><tr><th>Data</th><th>Unidade</th><th>Empresa</th><th>APR</th><th>Local</th><th>Técnico</th><th>Nota</th><th>Conf.</th><th>NC</th><th></th></tr></thead>
             <tbody id="tbodyReg"></tbody>
           </table>
         </div>
@@ -305,5 +306,18 @@
 <div class="toast" id="toast"></div>
 
 <script src="app.js"></script>
+<!-- ══════════════════════════════════════
+     MODAL: DETALHES DA AUDITORIA (somente leitura)
+══════════════════════════════════════ -->
+<div id="modalDetalheAuditoria" class="modal-overlay" onclick="if(event.target===this) fecharDetalheAuditoria()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span>📋 Detalhes da Auditoria</span>
+      <button class="btn-icon" onclick="fecharDetalheAuditoria()" title="Fechar">✕</button>
+    </div>
+    <div class="modal-body" id="detalheAuditoriaConteudo"></div>
+  </div>
+</div>
+
 </body>
 </html>
