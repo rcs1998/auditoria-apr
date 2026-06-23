@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Como instalar — Auditoria APR</title>
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
+
+:root{
+  --g900:#0A3D18; --g700:#1B6B2E; --g500:#2E9E4F; --g100:#DCFCE7; --g50:#F0FDF4;
+  --slate900:#0F172A; --slate700:#334155; --slate500:#64748B; --slate300:#CBD5E1; --slate100:#F1F5F9; --slate50:#F8FAFC;
+  --yellow:#F5C518; --white:#fff; --bg:#EEF4EF;
+  --r:16px; --shadow:0 4px 16px rgba(0,0,0,0.08);
+  --f:'Outfit','Segoe UI',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--f);background:var(--bg);color:var(--slate900);min-height:100vh; overflow-x:hidden}
+
+.hero{
+  background:var(--g900); color:#fff; padding:40px 20px 56px;
+  text-align:center;
+}
+.hero img{ width:64px; height:64px; border-radius:14px; margin-bottom:14px }
+.hero h1{ font-size:24px; font-weight:800; margin-bottom:6px }
+.hero p{ font-size:14px; color:rgba(255,255,255,.7); max-width:420px; margin:0 auto }
+
+.container{ max-width:680px; margin:-32px auto 40px; padding:0 16px }
+
+.tabs{
+  display:flex; gap:8px; background:var(--white); border-radius:14px;
+  padding:6px; box-shadow:var(--shadow); margin-bottom:20px;
+}
+.tab-btn{
+  flex:1; padding:12px; border:none; border-radius:10px; background:none;
+  font-family:var(--f); font-size:14px; font-weight:700; color:var(--slate500);
+  cursor:pointer; transition:all .15s; display:flex; align-items:center; justify-content:center; gap:6px;
+}
+.tab-btn.active{ background:var(--g700); color:#fff }
+
+.panel{ display:none }
+.panel.active{ display:block }
+
+.step-card{
+  background:var(--white); border-radius:var(--r); box-shadow:var(--shadow);
+  padding:20px; margin-bottom:14px; display:flex; gap:16px; align-items:flex-start;
+}
+.step-num{
+  width:36px; height:36px; border-radius:50%; background:var(--g100); color:var(--g700);
+  display:flex; align-items:center; justify-content:center; font-weight:800; font-size:15px;
+  flex-shrink:0;
+}
+.step-body h3{ font-size:15px; font-weight:700; margin-bottom:4px }
+.step-body p{ font-size:13.5px; color:var(--slate700); line-height:1.5 }
+.step-body .icon-inline{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:22px; height:22px; background:var(--slate100); border-radius:6px;
+  font-size:13px; vertical-align:middle; margin:0 2px;
+}
+
+.note{
+  background:var(--g50); border:1.5px solid var(--g100); border-radius:12px;
+  padding:14px 16px; font-size:13px; color:var(--g900); margin-top:18px;
+  display:flex; gap:10px; align-items:flex-start;
+}
+.note b{ display:block; margin-bottom:2px }
+
+.back-link{
+  display:inline-flex; align-items:center; gap:6px; color:var(--g700);
+  font-weight:700; font-size:14px; text-decoration:none; margin-bottom:18px;
+}
+
+@media (max-width:480px){
+  .hero{ padding:32px 16px 48px }
+  .step-card{ padding:16px; gap:12px }
+}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <img src="icons/icon-192.png" alt="Auditoria APR">
+  <h1>Instalar o Auditoria APR</h1>
+  <p>Instale o app no seu celular para abrir mais rápido, em tela cheia e usar mesmo com internet instável.</p>
+</div>
+
+<div class="container">
+  <a href="index.html" class="back-link">← Voltar para o app</a>
+
+  <div class="tabs">
+    <button class="tab-btn active" id="tab-android" onclick="mostrarAba('android')">🤖 Android</button>
+    <button class="tab-btn" id="tab-ios" onclick="mostrarAba('ios')">🍎 iPhone (iOS)</button>
+  </div>
+
+  <!-- ANDROID -->
+  <div class="panel active" id="panel-android">
+    <div class="step-card">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h3>Abra o app no Chrome</h3>
+        <p>No seu celular Android, abra o link do Auditoria APR usando o navegador <b>Google Chrome</b>.</p>
+      </div>
+    </div>
+    <div class="step-card">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h3>Toque no menu (⋮)</h3>
+        <p>No canto superior direito da tela, toque nos três pontinhos <span class="icon-inline">⋮</span> para abrir o menu do navegador.</p>
+      </div>
+    </div>
+    <div class="step-card">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h3>Selecione "Instalar app" ou "Adicionar à tela inicial"</h3>
+        <p>O texto pode variar um pouco dependendo da versão do Chrome, mas a opção estará nesse menu. Toque nela.</p>
+      </div>
+    </div>
+    <div class="step-card">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <h3>Confirme a instalação</h3>
+        <p>Vai aparecer uma caixinha perguntando se você quer instalar o app. Toque em <b>"Instalar"</b>.</p>
+      </div>
+    </div>
+    <div class="step-card">
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <h3>Pronto! 🎉</h3>
+        <p>O ícone do Auditoria APR vai aparecer na sua tela inicial, junto com seus outros aplicativos — exatamente como qualquer outro app.</p>
+      </div>
+    </div>
+
+    <div class="note">
+      <span>💡</span>
+      <div><b>Dica</b>Se o Chrome já detectou que o app pode ser instalado, pode aparecer um banner ou um ícone de instalação direto na barra de endereço — é só tocar nele que o processo é o mesmo.</div>
+    </div>
+  </div>
+
+  <!-- iOS -->
+  <div class="panel" id="panel-ios">
+    <div class="step-card">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h3>Abra o app no Safari</h3>
+        <p>No iPhone, o app só pode ser instalado pelo navegador <b>Safari</b> (não funciona pelo Chrome ou outros navegadores no iOS).</p>
+      </div>
+    </div>
+    <div class="step-card">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h3>Toque no botão de Compartilhar</h3>
+        <p>Na barra inferior (ou superior, dependendo do modelo), toque no ícone de compartilhar <span class="icon-inline">⬆️</span> — um quadrado com uma seta para cima.</p>
+      </div>
+    </div>
+    <div class="step-card">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h3>Selecione "Adicionar à Tela de Início"</h3>
+        <p>Role a lista de opções até encontrar <b>"Adicionar à Tela de Início"</b> e toque nela.</p>
+      </div>
+    </div>
+    <div class="step-card">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <h3>Confirme o nome e toque em "Adicionar"</h3>
+        <p>O iPhone vai sugerir o nome "Auditoria APR" automaticamente. Toque em <b>"Adicionar"</b> no canto superior direito.</p>
+      </div>
+    </div>
+    <div class="step-card">
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <h3>Pronto! 🎉</h3>
+        <p>O ícone do Auditoria APR vai aparecer na sua tela inicial, e abrirá em tela cheia, sem as barras do navegador.</p>
+      </div>
+    </div>
+
+    <div class="note">
+      <span>⚠️</span>
+      <div><b>Atenção</b>No iPhone, o app instalado não atualiza tão automaticamente quanto no Android. Se uma atualização importante for feita, pode ser necessário remover o ícone da tela e adicionar de novo para garantir que a versão mais recente seja carregada.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+function mostrarAba(aba) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + aba).classList.add('active');
+  document.getElementById('tab-' + aba).classList.add('active');
+}
+</script>
+
+</body>
+</html>
