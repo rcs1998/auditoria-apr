@@ -204,6 +204,16 @@ async function onLogin(user) {
     showToast('Não foi possível verificar permissões. Conectando offline com nível restrito.', 'error');
   }
   NIVEL_ATUAL = (userDoc && userDoc.exists) ? (userDoc.data().nivel || 'tecnico') : 'tecnico';
+  const usuarioInativo = userDoc && userDoc.exists && userDoc.data().ativo === false;
+
+  if (usuarioInativo) {
+    await auth.signOut();
+    showScreen('s-login');
+    document.getElementById('loginErr').textContent = 'Este cadastro foi inativado. Fale com o administrador do sistema.';
+    document.getElementById('loginErr').style.display = 'block';
+    return;
+  }
+
   const precisaTrocarSenha = userDoc && userDoc.exists && userDoc.data().exigeTrocaSenha === true;
 
   if (precisaTrocarSenha) {
@@ -314,6 +324,7 @@ async function criarUsuario() {
     await cred.user.updateProfile({ displayName: nome });
     await db.collection('usuarios').doc(cred.user.uid).set({
       email, nome, nivel,
+      ativo: true,
       exigeTrocaSenha: true, // força a troca de senha no primeiro acesso
       criadoEm: new Date(),
     });
@@ -361,24 +372,42 @@ async function redefinirSenhaUsuario(email, nome) {
   }
 }
 
+async function alterarStatusUsuario(uid, ativar) {
+  const acao = ativar ? 'reativar' : 'inativar';
+  if (!confirm(`Tem certeza que deseja ${acao} este usuário?${!ativar ? ' Ele não conseguirá mais fazer login, mas seu histórico de auditorias será mantido.' : ''}`)) return;
+  try {
+    await db.collection('usuarios').doc(uid).update({ ativo: ativar });
+    showToast(`Usuário ${ativar ? 'reativado' : 'inativado'} com sucesso!`, 'success');
+    await renderUsuariosConfig();
+  } catch(e) {
+    showToast(mensagemErroAmigavel(e), 'error');
+  }
+}
+
 async function renderUsuariosConfig() {
   const snap = await db.collection('usuarios').get();
   const users = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
   document.getElementById('listaUsuarios').innerHTML = users.length
-    ? users.map(u => `<div class="item-row" style="flex-wrap:wrap;gap:8px">
-        <div>
-          <div class="item-label">${escapeHtml(u.nome)}</div>
-          <div class="item-sub">${escapeHtml(u.email)}</div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <select onchange="alterarNivelUsuario('${u.uid}', this.value)" style="padding:6px 10px;border-radius:8px;border:1px solid var(--slate200,#ccc)">
-            <option value="tecnico" ${u.nivel==='tecnico'?'selected':''}>Técnico</option>
-            <option value="gestor" ${u.nivel==='gestor'?'selected':''}>Gestor</option>
-            <option value="admin" ${u.nivel==='admin'?'selected':''}>Admin</option>
-          </select>
-          <button class="btn btn-secondary btn-sm" onclick="redefinirSenhaUsuario('${escapeHtml(u.email)}','${escapeHtml(u.nome)}')">🔑 Redefinir senha</button>
-        </div>
-      </div>`).join('')
+    ? users.map(u => {
+        const inativo = u.ativo === false;
+        return `<div class="item-row" style="flex-wrap:wrap;gap:8px;${inativo ? 'opacity:.55' : ''}">
+          <div>
+            <div class="item-label">${escapeHtml(u.nome)} ${inativo ? '<span class="badge b-nc" style="margin-left:6px">Inativo</span>' : ''}</div>
+            <div class="item-sub">${escapeHtml(u.email)}</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <select onchange="alterarNivelUsuario('${u.uid}', this.value)" ${inativo ? 'disabled' : ''} style="padding:6px 10px;border-radius:8px;border:1px solid var(--slate200,#ccc)">
+              <option value="tecnico" ${u.nivel==='tecnico'?'selected':''}>Técnico</option>
+              <option value="gestor" ${u.nivel==='gestor'?'selected':''}>Gestor</option>
+              <option value="admin" ${u.nivel==='admin'?'selected':''}>Admin</option>
+            </select>
+            <button class="btn btn-secondary btn-sm" onclick="redefinirSenhaUsuario('${escapeHtml(u.email)}','${escapeHtml(u.nome)}')">🔑 Redefinir senha</button>
+            ${inativo
+              ? `<button class="btn btn-primary btn-sm" onclick="alterarStatusUsuario('${u.uid}', true)">✓ Reativar</button>`
+              : `<button class="btn btn-secondary btn-sm" onclick="alterarStatusUsuario('${u.uid}', false)" style="color:var(--red)">⛔ Inativar</button>`}
+          </div>
+        </div>`;
+      }).join('')
     : '<div style="font-size:13px;color:var(--slate500);padding:8px">Nenhum usuário cadastrado.</div>';
 }
 
@@ -873,28 +902,41 @@ function renderDash() {
 
   const parcMap = {};
   dados.forEach(a => {
-    if (!parcMap[a.parceiro]) parcMap[a.parceiro] = { total:0, nc:0, conf:[] };
+    if (!parcMap[a.parceiro]) parcMap[a.parceiro] = { total:0, nc:0, conf:[], notas:[] };
     parcMap[a.parceiro].total++;
     if (a.naoConformidade) parcMap[a.parceiro].nc++;
     if (a.conformidade != null) parcMap[a.parceiro].conf.push(a.conformidade);
+    if (a.nota != null) parcMap[a.parceiro].notas.push(+a.nota);
   });
 
   const emps = Object.keys(parcMap);
   const confMed = {};
+  const notaMed = {};
+  const scoreCombinado = {};
   emps.forEach(e => {
     const cs = parcMap[e].conf;
+    const ns = parcMap[e].notas;
     confMed[e] = cs.length ? Math.round(cs.reduce((a,b)=>a+b,0)/cs.length) : 0;
+    notaMed[e] = ns.length ? Math.round((ns.reduce((a,b)=>a+b,0)/ns.length) * 10) / 10 : null;
+    // Score combinado: 50% conformidade (já em %) + 50% nota de qualidade
+    // (convertida de 0-10 para 0-100). Se a empresa não tiver nenhuma nota
+    // registrada, o score usa só a conformidade, para não penalizá-la
+    // injustamente por uma métrica que ela nunca recebeu.
+    const notaPct = notaMed[e] != null ? notaMed[e] * 10 : null;
+    scoreCombinado[e] = notaPct != null ? Math.round((confMed[e] + notaPct) / 2) : confMed[e];
   });
 
   const media   = emps.length ? Math.round(emps.reduce((s,e)=>s+confMed[e],0)/emps.length) : 0;
   const totalNC = dados.filter(a=>a.naoConformidade).length;
-  const melhor  = [...emps].sort((a,b)=>confMed[b]-confMed[a])[0];
+  const melhor  = [...emps].sort((a,b)=>scoreCombinado[b]-scoreCombinado[a])[0];
 
   document.getElementById('dKpiConf').textContent    = dados.length ? media+'%' : '—';
   document.getElementById('dKpiAud').textContent     = dados.length;
   document.getElementById('dKpiNC').textContent      = totalNC;
   document.getElementById('dKpiMelhor').textContent  = melhor || '—';
-  document.getElementById('dKpiMelhorSub').textContent = melhor ? confMed[melhor]+'% conformidade' : '';
+  document.getElementById('dKpiMelhorSub').textContent = melhor
+    ? `score ${scoreCombinado[melhor]} (conf. ${confMed[melhor]}%${notaMed[melhor]!=null ? ' + nota '+notaMed[melhor] : ''})`
+    : '';
 
   kc('b');
   if (emps.length) {
@@ -967,7 +1009,7 @@ function renderDash() {
 function renderRegistros() {
   const dados = [...AUDITORIAS].sort((a,b)=>{ const da=new Date(a.data||0),db2=new Date(b.data||0); return db2-da; });
   document.getElementById('cntReg').textContent = dados.length + ' registros';
-  const podeExcluir = NIVEL_ATUAL === 'gestor' || NIVEL_ATUAL === 'admin';
+  const podeExcluir = NIVEL_ATUAL === 'admin';
 
   document.getElementById('tbodyReg').innerHTML = dados.length ? dados.map(a => {
     const isNC = a.naoConformidade;
@@ -1012,32 +1054,66 @@ function abrirDetalheAuditoria(id) {
 
   const respostas = a.respostas || {};
   const comentarios = a.comentariosPerguntas || {};
+  const idsRespondidos = Object.keys(respostas);
 
-  // Monta a lista de perguntas na ordem das seções salvas, mostrando o que
-  // foi respondido e o comentário (se houver) — tudo somente leitura.
-  const blocosHtml = ORDEM_SECOES.map(secaoId => {
-    const perguntasDaSecao = perguntasOrdenadas(secaoId);
-    const linhasRespondidas = perguntasDaSecao
-      .filter(p => respostas[p.id] !== undefined)
-      .map(p => {
-        const resp = respostas[p.id];
-        const coment = comentarios[p.id];
+  // Mapa de id -> pergunta, juntando todas as seções atuais — usado só para
+  // recuperar o texto/peso/tipo originais quando a pergunta ainda existir.
+  // A fonte de verdade da resposta em si é sempre o que foi salvo na própria
+  // auditoria (campo "respostas"), nunca o estado atual de PERGUNTAS — assim
+  // a auditoria continua mostrando tudo corretamente mesmo que a pergunta
+  // tenha sido editada, movida de seção ou removida depois.
+  const mapaPerguntasAtuais = {};
+  Object.values(PERGUNTAS).flat().forEach(p => { mapaPerguntasAtuais[p.id] = p; });
+
+  let blocosHtml = '';
+
+  if (idsRespondidos.length) {
+    // Agrupa as respostas pela seção da pergunta correspondente HOJE.
+    // Perguntas cuja seção não existe mais caem num grupo "Outras respostas".
+    const grupos = {}; // secaoId -> [{id, texto, tipo, invertida, resp, coment}]
+    const OUTRAS = '__outras__';
+
+    idsRespondidos.forEach(qId => {
+      const pAtual = mapaPerguntasAtuais[qId];
+      let secaoId = OUTRAS;
+      if (pAtual) {
+        secaoId = Object.keys(PERGUNTAS).find(sId => (PERGUNTAS[sId] || []).some(p => p.id === qId)) || OUTRAS;
+      }
+      if (!grupos[secaoId]) grupos[secaoId] = [];
+      grupos[secaoId].push({
+        id: qId,
+        texto: pAtual ? pAtual.texto : `Pergunta removida (id: ${qId})`,
+        tipo: pAtual ? pAtual.tipo : (typeof respostas[qId] === 'number' ? 'nota' : 'sn'),
+        invertida: pAtual ? !!pAtual.invertida : false,
+        resp: respostas[qId],
+        coment: comentarios[qId],
+      });
+    });
+
+    // Renderiza primeiro na ordem das seções atuais, depois "Outras respostas".
+    const ordemComOutras = [...ORDEM_SECOES, OUTRAS];
+    blocosHtml = ordemComOutras.map(secaoId => {
+      const itens = grupos[secaoId];
+      if (!itens || !itens.length) return '';
+      const nomeSecao = secaoId === OUTRAS ? 'Outras respostas' : (SECAO_NOMES[secaoId] || secaoId);
+
+      const linhas = itens.map(p => {
         const corResp = p.tipo === 'nota'
           ? 'var(--slate700)'
-          : (resp === (p.invertida ? 'Não' : 'Sim') ? 'var(--g700)' : 'var(--red)');
+          : (String(p.resp) === (p.invertida ? 'Não' : 'Sim') ? 'var(--g700)' : 'var(--red)');
         return `<div class="detalhe-pergunta">
           <div class="detalhe-pergunta-texto">${escapeHtml(p.texto)}</div>
-          <div class="detalhe-pergunta-resp" style="color:${corResp}">${escapeHtml(String(resp))}${p.tipo==='nota'?'/10':''}</div>
-          ${coment ? `<div class="detalhe-pergunta-coment">💬 ${escapeHtml(coment)}</div>` : ''}
+          <div class="detalhe-pergunta-resp" style="color:${corResp}">${escapeHtml(String(p.resp))}${p.tipo==='nota'?'/10':''}</div>
+          ${p.coment ? `<div class="detalhe-pergunta-coment">💬 ${escapeHtml(p.coment)}</div>` : ''}
         </div>`;
       }).join('');
 
-    if (!linhasRespondidas) return '';
-    return `<div class="detalhe-secao">
-      <div class="detalhe-secao-titulo">${escapeHtml(SECAO_NOMES[secaoId] || secaoId)}</div>
-      ${linhasRespondidas}
-    </div>`;
-  }).join('');
+      return `<div class="detalhe-secao">
+        <div class="detalhe-secao-titulo">${escapeHtml(nomeSecao)}</div>
+        ${linhas}
+      </div>`;
+    }).join('');
+  }
 
   const conf = a.conformidade != null ? a.conformidade + '%' : '—';
   const nota = a.nota != null ? a.nota + '/10' : '—';
