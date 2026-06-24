@@ -169,7 +169,17 @@
         <div class="kpi-card"><div class="kpi-emoji">✅</div><div class="kpi-label">Conformidade Geral</div><div class="kpi-value" id="dKpiConf">—</div><div class="kpi-sub">média ponderada</div></div>
         <div class="kpi-card"><div class="kpi-emoji">📋</div><div class="kpi-label">Auditorias</div><div class="kpi-value" id="dKpiAud">—</div><div class="kpi-sub">no período</div></div>
         <div class="kpi-card"><div class="kpi-emoji">⚠️</div><div class="kpi-label">Não Conformidades</div><div class="kpi-value" id="dKpiNC">—</div><div class="kpi-sub">abertas</div></div>
-        <div class="kpi-card"><div class="kpi-emoji">🏆</div><div class="kpi-label">Melhor Empresa</div><div class="kpi-value" id="dKpiMelhor" style="font-size:16px;padding-top:8px">—</div><div class="kpi-sub" id="dKpiMelhorSub"></div></div>
+        <div class="kpi-card">
+          <div class="kpi-emoji">🏆</div>
+          <div class="kpi-label" style="display:flex;align-items:center;gap:5px">
+            Melhor Empresa
+            <span class="info-tip" tabindex="0">ⓘ
+              <span class="info-tip-text">Calculado como a média entre a Conformidade (% de respostas corretas, ponderada pelo peso de cada pergunta) e a Nota de Qualidade da APR (0–10, convertida para %). Se a empresa não tiver nenhuma nota registrada, usamos só a conformidade.</span>
+            </span>
+          </div>
+          <div class="kpi-value" id="dKpiMelhor" style="font-size:16px;padding-top:8px">—</div>
+          <div class="kpi-sub" id="dKpiMelhorSub"></div>
+        </div>
       </div>
 
       <div class="grid-2">
@@ -279,6 +289,26 @@
 
     <!-- ── PAGE: USUÁRIOS ── -->
     <div class="page-content" id="page-usuarios" style="display:none">
+      <div class="card" style="max-width:820px;margin-bottom:16px">
+        <div class="config-section">
+          <h3>ℹ️ O que cada nível de acesso pode fazer</h3>
+          <div class="nivel-explicacao">
+            <div class="nivel-card">
+              <div class="nivel-card-titulo">👷 Técnico</div>
+              <p>Acessa apenas o formulário de <b>Nova Auditoria</b>, para preencher e enviar auditorias em campo. Não vê Dashboard, Registros, Perguntas ou Usuários.</p>
+            </div>
+            <div class="nivel-card">
+              <div class="nivel-card-titulo">📊 Gestor</div>
+              <p>Tudo do Técnico, mais: <b>Dashboard</b> (gráficos e indicadores), <b>Registros</b> (lista de todas as auditorias, com detalhes), <b>Perguntas</b> (criar/editar/remover seções e perguntas do formulário) e <b>Usuários</b> (cadastrar pessoas e alterar nível de acesso). Não pode excluir auditorias nem gerenciar Unidades/Parceiros.</p>
+            </div>
+            <div class="nivel-card">
+              <div class="nivel-card-titulo">🔑 Admin</div>
+              <p>Tudo do Gestor, mais: <b>excluir auditorias</b> e gerenciar <b>Configurações</b> (Unidades e Empresas Parceiras). É o único nível com acesso total ao sistema.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="card" style="max-width:820px">
         <div class="config-section">
           <h3>👥 Usuários</h3>
