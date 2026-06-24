@@ -491,3 +491,38 @@ code{font-family:monospace;font-size:12px;background:var(--g50);color:var(--g700
 .btn-update-app:hover{ background:rgba(255,255,255,.12); color:rgba(255,255,255,.85) }
 .sidebar.collapsed .btn-update-app{ font-size:0; padding:8px 0 }
 .sidebar.collapsed .btn-update-app::before{ content:'↻'; font-size:14px }
+
+/* ── Tooltip de explicação (ex: cálculo de Melhor Empresa) ── */
+.info-tip{
+  position:relative; display:inline-flex; align-items:center; justify-content:center;
+  width:15px; height:15px; border-radius:50%; background:var(--slate100);
+  color:var(--slate500); font-size:10px; cursor:help; flex-shrink:0;
+}
+.info-tip-text{
+  display:none; position:absolute; bottom:140%; left:50%; transform:translateX(-50%);
+  width:230px; background:var(--slate900); color:#fff; font-size:11.5px; font-weight:500;
+  line-height:1.4; padding:10px 12px; border-radius:8px; z-index:20;
+  box-shadow:0 8px 24px rgba(0,0,0,0.25); text-transform:none; letter-spacing:normal;
+}
+.info-tip-text::after{
+  content:''; position:absolute; top:100%; left:50%; transform:translateX(-50%);
+  border:6px solid transparent; border-top-color:var(--slate900);
+}
+.info-tip:hover .info-tip-text, .info-tip:focus .info-tip-text{ display:block }
+
+@media (max-width:600px){
+  .info-tip-text{ width:190px; font-size:11px }
+}
+
+/* ── Explicação dos níveis de acesso (tela de Usuários) ── */
+.nivel-explicacao{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-top:8px }
+.nivel-card{
+  background:var(--slate50); border:1px solid var(--slate100); border-radius:12px;
+  padding:14px 16px;
+}
+.nivel-card-titulo{ font-weight:800; font-size:14px; margin-bottom:6px }
+.nivel-card p{ font-size:12.5px; color:var(--slate700); line-height:1.5; margin:0 }
+
+@media (max-width:900px){
+  .nivel-explicacao{ grid-template-columns:1fr }
+}
