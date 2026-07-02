@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Auditoria APR</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡</text></svg>">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
@@ -516,6 +517,15 @@ const PAGE_TITLES={dashboard:'Dashboard',registros:'Registros',perguntas:'Pergun
 // === INIT ===
 window.onload=()=>{
   document.getElementById('fData').value=new Date().toISOString().split('T')[0];
+  // Event delegation for dynamically generated buttons
+  document.addEventListener('click',function(e){
+    const pb=e.target.closest('.print-btn');
+    if(pb)openPrint(pb.getAttribute('data-id'));
+    const pe=e.target.closest('.perg-edit');
+    if(pe)openModalPerg(pe.getAttribute('data-id'));
+    const pd=e.target.closest('.perg-del');
+    if(pd)delPergunta(pd.getAttribute('data-id'));
+  });
   const saved=localStorage.getItem('aprFB');
   if(saved){
     const cfg=JSON.parse(saved);
@@ -610,9 +620,19 @@ function updateAuditorSel(){
 
 function renderAuditoresConfig(){
   const el=document.getElementById('listaAuditores');if(!el)return;
-  el.innerHTML=AUDITORES.length
-    ?AUDITORES.map(a=>'<div class="item-row"><div class="item-lbl">'+a.nome+'</div><button class="btn-icon del" onclick="delAuditor(''+a.id+'')">&#128465;</button></div>').join('')
-    :'<div style="font-size:13px;color:var(--s500);padding:8px">Nenhum auditor cadastrado.</div>';
+  el.innerHTML='';
+  if(!AUDITORES.length){
+    el.innerHTML='<div style="font-size:13px;color:var(--s500);padding:8px">Nenhum auditor cadastrado.</div>';
+    return;
+  }
+  AUDITORES.forEach(function(a){
+    const row=document.createElement('div');row.className='item-row';
+    const lbl=document.createElement('div');lbl.className='item-lbl';lbl.textContent=a.nome;
+    const btn=document.createElement('button');btn.className='btn-icon del';btn.innerHTML='&#128465;';
+    btn.title='Remover';
+    btn.addEventListener('click',function(){delAuditor(a.id);});
+    row.appendChild(lbl);row.appendChild(btn);el.appendChild(row);
+  });
 }
 
 async function addAuditor(){
@@ -684,14 +704,27 @@ async function criarUsuario(){
 async function renderUsers(){
   const snap=await db.collection('usuarios').get();
   const users=snap.docs.map(d=>({id:d.id,...d.data()}));
-  document.getElementById('listaUsers').innerHTML=users.length
-    ?users.map(u=>'<div class="item-row"><div class="u-av" style="flex-shrink:0">'+(u.nome||'?')[0].toUpperCase()+'</div><div style="flex:1"><div class="item-lbl">'+(u.nome||'--')+'</div><div class="item-sub">'+u.email+'</div></div><span class="badge '+(u.perfil==='admin'?'b-admin':'b-gestor')+'">'+u.perfil+'</span><button class="btn-icon" onclick="openEditUser(''+u.id+'',''+encodeURIComponent(u.nome||'')+'',''+u.perfil+'')">&#9999;</button></div>').join('')
-    :'<div style="font-size:13px;color:var(--s500);padding:8px">Nenhum usuario.</div>';
+  const el=document.getElementById('listaUsers');
+  el.innerHTML='';
+  if(!users.length){el.innerHTML='<div style="font-size:13px;color:var(--s500);padding:8px">Nenhum usuario.</div>';return;}
+  users.forEach(function(u){
+    const row=document.createElement('div');row.className='item-row';
+    const av=document.createElement('div');av.className='u-av';av.style.flexShrink='0';av.textContent=(u.nome||'?')[0].toUpperCase();
+    const info=document.createElement('div');info.style.flex='1';
+    const nm=document.createElement('div');nm.className='item-lbl';nm.textContent=u.nome||'--';
+    const em=document.createElement('div');em.className='item-sub';em.textContent=u.email;
+    info.appendChild(nm);info.appendChild(em);
+    const badge=document.createElement('span');badge.className='badge '+(u.perfil==='admin'?'b-admin':'b-gestor');badge.textContent=u.perfil;
+    const btn=document.createElement('button');btn.className='btn-icon';btn.innerHTML='&#9999;';
+    btn.addEventListener('click',function(){openEditUser(u.id,u.nome||'',u.perfil);});
+    row.appendChild(av);row.appendChild(info);row.appendChild(badge);row.appendChild(btn);
+    el.appendChild(row);
+  });
 }
 
-function openEditUser(id,nomeEnc,perfil){
+function openEditUser(id,nome,perfil){
   document.getElementById('muId').value=id;
-  document.getElementById('muNome').value=decodeURIComponent(nomeEnc);
+  document.getElementById('muNome').value=nome;
   document.getElementById('muPerfil').value=perfil;
   openModal('modalUser');
 }
@@ -729,9 +762,15 @@ async function loadParceiros(){
 
 async function renderUnidadesCfg(){
   await loadUnidadesForm();
-  document.getElementById('listaUnid').innerHTML=UNIDADES.length
-    ?UNIDADES.map(u=>'<div class="item-row"><div class="item-lbl">'+u.nome+'</div><button class="btn-icon del" onclick="delUnidade(''+u.id+'')">&#128465;</button></div>').join('')
-    :'<div style="font-size:13px;color:var(--s500)">Nenhuma unidade.</div>';
+  const listaUnidEl=document.getElementById('listaUnid');listaUnidEl.innerHTML='';
+  if(!UNIDADES.length){listaUnidEl.innerHTML='<div style="font-size:13px;color:var(--s500)">Nenhuma unidade.</div>';}
+  else{UNIDADES.forEach(function(u){
+    const row=document.createElement('div');row.className='item-row';
+    const lbl=document.createElement('div');lbl.className='item-lbl';lbl.textContent=u.nome;
+    const btn=document.createElement('button');btn.className='btn-icon del';btn.innerHTML='&#128465;';
+    btn.addEventListener('click',function(){delUnidade(u.id);});
+    row.appendChild(lbl);row.appendChild(btn);listaUnidEl.appendChild(row);
+  });}
   const sel=document.getElementById('cfgUnidSel');
   sel.innerHTML='<option value="">Selecione...</option>';
   UNIDADES.forEach(u=>{const o=document.createElement('option');o.value=u.id;o.textContent=u.nome;sel.appendChild(o);});
@@ -760,7 +799,15 @@ async function renderParcCfg(){
   if(!uid){lista.innerHTML='';row.style.display='none';return;}
   const snap=await db.collection('unidades').doc(uid).collection('parceiros').orderBy('nome').get();
   lista.innerHTML=snap.docs.length
-    ?snap.docs.map(d=>'<div class="item-row"><div class="item-lbl">'+d.data().nome+'</div><button class="btn-icon del" onclick="delParceiro(''+uid+'',''+d.id+'')">&#128465;</button></div>').join('')
+  if(!snap.docs.length){lista.innerHTML='<div style="font-size:13px;color:var(--s500)">Nenhum parceiro.</div>';}
+  else{snap.docs.forEach(function(d){
+    const pnome=d.data().nome,pid=d.id,puid=uid;
+    const prow=document.createElement('div');prow.className='item-row';
+    const plbl=document.createElement('div');plbl.className='item-lbl';plbl.textContent=pnome;
+    const pbtn=document.createElement('button');pbtn.className='btn-icon del';pbtn.innerHTML='&#128465;';
+    pbtn.addEventListener('click',function(){delParceiro(puid,pid);});
+    prow.appendChild(plbl);prow.appendChild(pbtn);lista.appendChild(prow);
+  });}
     :'<div style="font-size:13px;color:var(--s500)">Nenhum parceiro.</div>';
   row.style.display='flex';
 }
@@ -813,24 +860,48 @@ async function seedPerguntas(){
 function renderFormPerguntas(){
   const c=document.getElementById('form-perguntas');
   if(!PERGUNTAS.length){c.innerHTML='<div class="empty"><div class="empty-ico">?</div><div class="empty-txt">Nenhuma pergunta configurada.</div></div>';return;}
-  let html='';
-  SECOES.forEach((sec,si)=>{
-    const ps=PERGUNTAS.filter(p=>p.secao===sec);if(!ps.length)return;
-    html+='<div class="sec-hdr'+(sec==='Desvios'?' red':'')+'">'+( si+2)+'. '+sec+'</div>';
-    ps.forEach(p=>{
+  const frag=document.createDocumentFragment();
+  SECOES.forEach(function(sec,si){
+    const ps=PERGUNTAS.filter(function(p){return p.secao===sec;});
+    if(!ps.length)return;
+    const hdr=document.createElement('div');
+    hdr.className='sec-hdr'+(sec==='Desvios'?' red':'');
+    hdr.textContent=(si+2)+'. '+sec;
+    frag.appendChild(hdr);
+    ps.forEach(function(p){
+      const block=document.createElement('div');block.className='qblock';
       if(p.tipo==='nota'){
-        html+='<div class="qblock"><div class="q-lbl">'+p.texto+' <span class="q-peso">P'+p.peso+'</span></div>';
-        html+='<div class="nota-grid">';
-        for(let n=0;n<=10;n++)html+='<button class="nb2" id="nb-'+p.id+'-'+n+'" onclick="selNota(''+p.id+'','+n+')">'+n+'</button>';
-        html+='</div></div>';
+        const lbl=document.createElement('div');lbl.className='q-lbl';
+        lbl.innerHTML=p.texto+' <span class="q-peso">P'+p.peso+'</span>';
+        block.appendChild(lbl);
+        const grid=document.createElement('div');grid.className='nota-grid';
+        for(let n=0;n<=10;n++){
+          const btn=document.createElement('button');
+          btn.className='nb2';btn.id='nb-'+p.id+'-'+n;btn.textContent=n;
+          btn.setAttribute('data-qid',p.id);btn.setAttribute('data-n',n);
+          btn.onclick=function(){selNota(this.getAttribute('data-qid'),parseInt(this.getAttribute('data-n')));};
+          grid.appendChild(btn);
+        }
+        block.appendChild(grid);
       }else{
-        html+='<div class="qblock"><div class="q-lbl">'+p.texto+' <span class="q-peso'+(p.peso>=3?' hi':'')+'">P'+p.peso+'</span></div>';
-        html+='<div class="rg"><label class="ro" id="ro-sim-'+p.id+'" onclick="selOpt(''+p.id+'','Sim')"><input type="radio" name="'+p.id+'" value="Sim"> Sim</label>';
-        html+='<label class="ro" id="ro-nao-'+p.id+'" onclick="selOpt(''+p.id+'','Nao')"><input type="radio" name="'+p.id+'" value="Nao"> Nao</label></div></div>';
+        const lbl=document.createElement('div');lbl.className='q-lbl';
+        lbl.innerHTML=p.texto+' <span class="q-peso'+(p.peso>=3?' hi':'')+'">P'+p.peso+'</span>';
+        block.appendChild(lbl);
+        const rg=document.createElement('div');rg.className='rg';
+        ['Sim','Nao'].forEach(function(val){
+          const lbEl=document.createElement('label');
+          lbEl.className='ro';lbEl.id='ro-'+(val==='Sim'?'sim':'nao')+'-'+p.id;
+          lbEl.innerHTML='<input type="radio" name="'+p.id+'" value="'+val+'"> '+val;
+          lbEl.setAttribute('data-qid',p.id);lbEl.setAttribute('data-val',val);
+          lbEl.onclick=function(){selOpt(this.getAttribute('data-qid'),this.getAttribute('data-val'));};
+          rg.appendChild(lbEl);
+        });
+        block.appendChild(rg);
       }
+      frag.appendChild(block);
     });
   });
-  c.innerHTML=html;
+  c.innerHTML='';c.appendChild(frag);
 }
 
 function selOpt(qid,val){
@@ -859,8 +930,8 @@ function renderPerguntasConfig(){
     if(!filtSecao&&p.secao!==lastSec){html+='<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--g700);padding:14px 0 6px;border-top:2px solid var(--g100);margin-top:4px">'+p.secao+'</div>';lastSec=p.secao;}
     html+='<div class="pq-row"><div class="pq-body"><div class="pq-txt">'+p.texto+'</div>';
     html+='<div class="pq-meta"><span>'+(p.tipo==='nota'?'Nota':'Sim/Nao')+'</span><span class="pq-peso-tag'+(p.peso>=3?' hi':'')+'">Peso '+p.peso+'</span><span>'+p.secao+'</span>'+(p.inversa?'<span style="color:var(--yel)">Inversa</span>':'')+'</div></div>';
-    html+='<button class="btn-icon" onclick="openModalPerg(''+p.id+'')">&#9999;</button>';
-    html+='<button class="btn-icon del" onclick="delPergunta(''+p.id+'')">&#128465;</button></div>';
+    html+='<button class="btn-icon perg-edit" data-id="'+p.id+'">&#9999;</button>';
+    html+='<button class="btn-icon del perg-del" data-id="'+p.id+'">&#128465;</button></div>';
   });
   el.innerHTML=html;
 }
@@ -951,6 +1022,15 @@ function resetForm(){
   document.getElementById('fParc').innerHTML='<option value="">Selecione a unidade primeiro...</option>';
   ['fAPR','fLocal','fComent'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('fData').value=new Date().toISOString().split('T')[0];
+  // Event delegation for dynamically generated buttons
+  document.addEventListener('click',function(e){
+    const pb=e.target.closest('.print-btn');
+    if(pb)openPrint(pb.getAttribute('data-id'));
+    const pe=e.target.closest('.perg-edit');
+    if(pe)openModalPerg(pe.getAttribute('data-id'));
+    const pd=e.target.closest('.perg-del');
+    if(pd)delPergunta(pd.getAttribute('data-id'));
+  });
   RESPOSTAS={};
   document.querySelectorAll('.ro').forEach(el=>el.className='ro');
   document.querySelectorAll('.nb2').forEach(b=>b.classList.remove('sel'));
@@ -1073,7 +1153,7 @@ function renderReg(){
       +'<td><span style="font-weight:800;color:'+nc+'">'+(n!=null?n+'/10':'--')+'</span></td>'
       +'<td><span style="font-weight:700;color:'+corC+'">'+(conf!=null?conf+'%':'--')+'</span></td>'
       +'<td><span class="badge '+(isNC?'b-nc':'b-ok')+'">'+(isNC?'NC':'OK')+'</span></td>'
-      +'<td><button class="btn-icon" onclick="openPrint(''+a.id+'')" title="Imprimir">&#128438;</button></td></tr>';
+      +'<td><button class="btn-icon print-btn" data-id="'+a.id+'" title="Imprimir">&#128438;</button></td></tr>';
   }).join(''):'<tr><td colspan="10"><div class="empty"><div class="empty-ico">-</div><div class="empty-txt">Nenhum registro</div></div></td></tr>';
 }
 
