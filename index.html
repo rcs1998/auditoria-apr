@@ -517,27 +517,62 @@ const PAGE_TITLES={dashboard:'Dashboard',registros:'Registros',perguntas:'Pergun
 window.onload=()=>{
   document.getElementById('fData').value=new Date().toISOString().split('T')[0];
   const saved=localStorage.getItem('aprFB');
-  if(saved){initFB(JSON.parse(saved));}
-  else showS('s-setup');
+  if(saved){
+    const cfg=JSON.parse(saved);
+    // Pre-fill setup fields
+    document.getElementById('fbKey').value=cfg.apiKey||'';
+    document.getElementById('fbAuth').value=cfg.authDomain||'';
+    document.getElementById('fbProj').value=cfg.projectId||'';
+    document.getElementById('fbApp').value=cfg.appId||'';
+    initFB(cfg);
+  } else {
+    showS('s-setup');
+  }
 };
 
 function salvarFB(){
-  const cfg={apiKey:document.getElementById('fbKey').value.trim(),authDomain:document.getElementById('fbAuth').value.trim(),
-    projectId:document.getElementById('fbProj').value.trim(),appId:document.getElementById('fbApp').value.trim()};
-  if(!cfg.apiKey||!cfg.projectId){toast('Preencha todos os campos','err');return;}
+  const cfg={
+    apiKey:document.getElementById('fbKey').value.trim(),
+    authDomain:document.getElementById('fbAuth').value.trim(),
+    projectId:document.getElementById('fbProj').value.trim(),
+    appId:document.getElementById('fbApp').value.trim()
+  };
+  if(!cfg.apiKey){toast('Preencha a API Key','err');return;}
+  if(!cfg.projectId){toast('Preencha o Project ID','err');return;}
+  if(!cfg.authDomain){toast('Preencha o Auth Domain','err');return;}
+  if(!cfg.appId){toast('Preencha o App ID','err');return;}
+  toast('Conectando...','');
   localStorage.setItem('aprFB',JSON.stringify(cfg));
-  initFB(cfg);
+  // Reset firebase if already initialized
+  if(firebase.apps.length){
+    firebase.apps[0].delete().then(()=>initFB(cfg)).catch(()=>initFB(cfg));
+  } else {
+    initFB(cfg);
+  }
 }
 
 function initFB(cfg){
   try{
     if(!firebase.apps.length)firebase.initializeApp(cfg);
-    db=firebase.firestore(); auth=firebase.auth();
-    subscribeAuditores();
-    loadUnidadesForm();
-    auth.onAuthStateChanged(async u=>{if(u)await onLogin(u);});
-    irForm();
-  }catch(e){toast('Erro Firebase: '+e.message,'err');}
+    db=firebase.firestore();
+    auth=firebase.auth();
+    // Test connection
+    db.collection('_ping').limit(1).get()
+      .then(()=>{
+        toast('Firebase conectado!','ok');
+        subscribeAuditores();
+        loadUnidadesForm();
+        auth.onAuthStateChanged(async u=>{if(u)await onLogin(u);});
+        setTimeout(()=>irForm(), 800);
+      })
+      .catch(e=>{
+        toast('Erro de conexao: verifique o Project ID e as regras do Firestore','err');
+        console.error(e);
+      });
+  }catch(e){
+    toast('Erro: '+e.message,'err');
+    console.error(e);
+  }
 }
 
 function irForm(){
