@@ -1,11 +1,7 @@
 <!DOCTYPE html>
-<!-- v20260703_163240 -->
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Auditoria APR</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡</text></svg>">
@@ -518,6 +514,17 @@ const CORES=['#1B6B2E','#16A34A','#D97706','#1D4ED8','#DC2626','#7C3AED','#0891B
 const SECOES=['Identificacao da APR','Identificacao de Riscos','Medidas de Controle','Qualidade da APR','Evidencias','Desvios'];
 const PAGE_TITLES={dashboard:'Dashboard',registros:'Registros',perguntas:'Perguntas',usuarios:'Usuarios',configuracoes:'Configuracoes'};
 
+// === FIREBASE (config fixa — todo usuario usa o mesmo projeto,
+// sem precisar configurar nada no primeiro acesso) ===
+const FIREBASE_CONFIG={
+  apiKey:"AIzaSyC5Kz7Hns8sHhUNKZUODAsPc_JjXI1eyBE",
+  authDomain:"auditoria-apr-1.firebaseapp.com",
+  projectId:"auditoria-apr-1",
+  storageBucket:"auditoria-apr-1.firebasestorage.app",
+  messagingSenderId:"70897842287",
+  appId:"1:70897842287:web:d47ef7b13d9fa91e8ab59a"
+};
+
 // === INIT ===
 window.onload=()=>{
   document.getElementById('fData').value=new Date().toISOString().split('T')[0];
@@ -530,18 +537,7 @@ window.onload=()=>{
     const pd=e.target.closest('.perg-del');
     if(pd)delPergunta(pd.getAttribute('data-id'));
   });
-  const saved=localStorage.getItem('aprFB');
-  if(saved){
-    const cfg=JSON.parse(saved);
-    // Pre-fill setup fields
-    document.getElementById('fbKey').value=cfg.apiKey||'';
-    document.getElementById('fbAuth').value=cfg.authDomain||'';
-    document.getElementById('fbProj').value=cfg.projectId||'';
-    document.getElementById('fbApp').value=cfg.appId||'';
-    initFB(cfg);
-  } else {
-    showS('s-setup');
-  }
+  initFB(FIREBASE_CONFIG);
 };
 
 function salvarFB(){
@@ -643,15 +639,19 @@ async function addAuditor(){
   const nome=document.getElementById('nAuditor').value.trim();
   if(!nome){toast('Digite o nome','err');return;}
   if(AUDITORES.some(a=>a.nome.toLowerCase()===nome.toLowerCase())){toast('Ja cadastrado','err');return;}
-  await db.collection('auditores').add({nome,criadoEm:new Date()});
-  document.getElementById('nAuditor').value='';
-  toast('Auditor adicionado! Ja aparece no formulario.','ok');
+  try{
+    await db.collection('auditores').add({nome,criadoEm:new Date()});
+    document.getElementById('nAuditor').value='';
+    toast('Auditor adicionado! Ja aparece no formulario.','ok');
+  }catch(e){toast('Erro ao adicionar: '+e.message,'err');}
 }
 
 async function delAuditor(id){
   if(!confirm('Remover este auditor da lista?'))return;
-  await db.collection('auditores').doc(id).delete();
-  toast('Removido','ok');
+  try{
+    await db.collection('auditores').doc(id).delete();
+    toast('Removido','ok');
+  }catch(e){toast('Erro ao remover: '+e.message,'err');}
 }
 
 // === AUTH ===
@@ -666,7 +666,14 @@ async function fazerLogin(){
 
 async function onLogin(u){
   const doc=await db.collection('usuarios').doc(u.uid).get();
-  CU=doc.exists?{uid:u.uid,...doc.data()}:{uid:u.uid,email:u.email,nome:u.displayName||u.email,perfil:'gestor'};
+  CU=doc.exists?{uid:u.uid,...doc.data()}:{uid:u.uid,email:u.email,nome:u.displayName||u.email,perfil:'gestor',ativo:true};
+  if(CU.ativo===false){
+    toast('Sua conta foi desativada. Fale com um administrador.','err');
+    await auth.signOut();
+    CU=null;
+    irForm();
+    return;
+  }
   document.getElementById('uAv').textContent=(CU.nome||'?')[0].toUpperCase();
   document.getElementById('uNm').textContent=CU.nome||CU.email;
   const rb=document.getElementById('roleBadge');
@@ -696,7 +703,7 @@ async function criarUsuario(){
   try{
     const cred=await auth.createUserWithEmailAndPassword(email,senha);
     await cred.user.updateProfile({displayName:nome});
-    await db.collection('usuarios').doc(cred.user.uid).set({nome,email,perfil,criadoEm:new Date()});
+    await db.collection('usuarios').doc(cred.user.uid).set({nome,email,perfil,ativo:true,criadoEm:new Date()});
     document.getElementById('uNome').value='';
     document.getElementById('uEmail').value='';
     document.getElementById('uSenha').value='';
@@ -718,10 +725,15 @@ async function renderUsers(){
     const nm=document.createElement('div');nm.className='item-lbl';nm.textContent=u.nome||'--';
     const em=document.createElement('div');em.className='item-sub';em.textContent=u.email;
     info.appendChild(nm);info.appendChild(em);
-    const badge=document.createElement('span');badge.className='badge '+(u.perfil==='admin'?'b-admin':'b-gestor');badge.textContent=u.perfil;
+    const inativo=u.ativo===false;
+    if(inativo)row.style.opacity='0.5';
+    const badge=document.createElement('span');badge.className='badge '+(u.perfil==='admin'?'b-admin':'b-gestor');badge.textContent=u.perfil+(inativo?' (inativo)':'');
+    const btnAt=document.createElement('button');btnAt.className='btn-icon';btnAt.title=inativo?'Ativar':'Inativar';
+    btnAt.innerHTML=inativo?'&#128274;':'&#128275;';
+    btnAt.addEventListener('click',function(){toggleAtivoUser(u.id,u.ativo!==false);});
     const btn=document.createElement('button');btn.className='btn-icon';btn.innerHTML='&#9999;';
     btn.addEventListener('click',function(){openEditUser(u.id,u.nome||'',u.perfil);});
-    row.appendChild(av);row.appendChild(info);row.appendChild(badge);row.appendChild(btn);
+    row.appendChild(av);row.appendChild(info);row.appendChild(badge);row.appendChild(btnAt);row.appendChild(btn);
     el.appendChild(row);
   });
 }
@@ -731,6 +743,15 @@ function openEditUser(id,nome,perfil){
   document.getElementById('muNome').value=nome;
   document.getElementById('muPerfil').value=perfil;
   openModal('modalUser');
+}
+
+async function toggleAtivoUser(id,ativoAtual){
+  if(id===CU?.uid){toast('Voce nao pode inativar sua propria conta','err');return;}
+  try{
+    await db.collection('usuarios').doc(id).update({ativo:!ativoAtual});
+    toast(ativoAtual?'Usuario inativado':'Usuario ativado','ok');
+    await renderUsers();
+  }catch(e){toast('Erro: '+e.message,'err');}
 }
 
 async function salvarUser(){
