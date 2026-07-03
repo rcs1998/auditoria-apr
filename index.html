@@ -798,7 +798,7 @@ async function renderParcCfg(){
   const row=document.getElementById('addParcRow');
   if(!uid){lista.innerHTML='';row.style.display='none';return;}
   const snap=await db.collection('unidades').doc(uid).collection('parceiros').orderBy('nome').get();
-  lista.innerHTML=snap.docs.length
+
   if(!snap.docs.length){lista.innerHTML='<div style="font-size:13px;color:var(--s500)">Nenhum parceiro.</div>';}
   else{snap.docs.forEach(function(d){
     const pnome=d.data().nome,pid=d.id,puid=uid;
@@ -808,7 +808,7 @@ async function renderParcCfg(){
     pbtn.addEventListener('click',function(){delParceiro(puid,pid);});
     prow.appendChild(plbl);prow.appendChild(pbtn);lista.appendChild(prow);
   });}
-    :'<div style="font-size:13px;color:var(--s500)">Nenhum parceiro.</div>';
+
   row.style.display='flex';
 }
 
