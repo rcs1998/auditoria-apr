@@ -513,21 +513,21 @@ const CORES=['#1B6B2E','#16A34A','#D97706','#1D4ED8','#DC2626','#7C3AED','#0891B
 const SECOES=['Identificacao da APR','Identificacao de Riscos','Medidas de Controle','Qualidade da APR','Evidencias','Desvios'];
 const PAGE_TITLES={dashboard:'Dashboard',registros:'Registros',perguntas:'Perguntas',usuarios:'Usuarios',configuracoes:'Configuracoes'};
 
+// === FIREBASE (config fixa — todo usuario usa o mesmo projeto,
+// sem precisar configurar nada no primeiro acesso) ===
+const FIREBASE_CONFIG={
+  apiKey:"AIzaSyC5Kz7Hns8sHhUNKZUODAsPc_JjXI1eyBE",
+  authDomain:"auditoria-apr-1.firebaseapp.com",
+  projectId:"auditoria-apr-1",
+  storageBucket:"auditoria-apr-1.firebasestorage.app",
+  messagingSenderId:"70897842287",
+  appId:"1:70897842287:web:d47ef7b13d9fa91e8ab59a"
+};
+
 // === INIT ===
 window.onload=()=>{
   document.getElementById('fData').value=new Date().toISOString().split('T')[0];
-  const saved=localStorage.getItem('aprFB');
-  if(saved){
-    const cfg=JSON.parse(saved);
-    // Pre-fill setup fields
-    document.getElementById('fbKey').value=cfg.apiKey||'';
-    document.getElementById('fbAuth').value=cfg.authDomain||'';
-    document.getElementById('fbProj').value=cfg.projectId||'';
-    document.getElementById('fbApp').value=cfg.appId||'';
-    initFB(cfg);
-  } else {
-    showS('s-setup');
-  }
+  initFB(FIREBASE_CONFIG);
 };
 
 function salvarFB(){
