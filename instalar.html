@@ -1118,11 +1118,22 @@ function renderReg(){
       +'<td><span style="font-weight:800;color:'+nc+'">'+(n!=null?n+'/10':'--')+'</span></td>'
       +'<td><span style="font-weight:700;color:'+corC+'">'+(conf!=null?conf+'%':'--')+'</span></td>'
       +'<td><span class="badge '+(isNC?'b-nc':'b-ok')+'">'+(isNC?'NC':'OK')+'</span></td>'
-      +'<td><button class="btn-icon" onclick="openPrint('"+a.id+"')" title="Imprimir">&#128438;</button></td></tr>';
+      +'<td><button class="btn-icon" onclick="openPrint(\''+a.id+'\')" title="Imprimir">&#128438;</button>'
+      +(CU&&CU.perfil==='admin'?'<button class="btn-icon del" onclick="delAuditoria(\''+a.id+'\')" title="Excluir registro">&#128465;</button>':'')
+      +'</td></tr>';
   }).join(''):'<tr><td colspan="10"><div class="empty"><div class="empty-ico">-</div><div class="empty-txt">Nenhum registro</div></div></td></tr>';
 }
 
 // === IMPRESSAO ===
+async function delAuditoria(id){
+  if(!confirm('Excluir este registro de auditoria? Essa acao nao pode ser desfeita.'))return;
+  try{
+    await db.collection('auditorias').doc(id).delete();
+    toast('Registro excluido','ok');
+    await loadAuditorias();
+  }catch(e){toast('Erro ao excluir: '+e.message,'err');}
+}
+
 function openPrint(id){
   const a=AUDITORIAS.find(x=>x.id===id);if(!a)return;
   const conf=a.conformidade??0;const corC=corConf(conf);const isNC=a.naoConformidade;
