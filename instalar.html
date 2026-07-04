@@ -969,8 +969,13 @@ async function enviarAuditoria(){
     if(ok)obtidos+=p.peso;
   });
   const conformidade=maximos>0?Math.round((obtidos/maximos)*100):0;
-  const isNC=PERGUNTAS.some(p=>p.inversa&&p.secao==='Desvios'&&RESPOSTAS[p.id]==='Sim')
-    ||PERGUNTAS.some(p=>!p.inversa&&p.secao==='Desvios'&&RESPOSTAS[p.id]==='Nao');
+  const isNC=PERGUNTAS.some(p=>{
+    if(p.tipo!=='simnao')return false;
+    const resp=RESPOSTAS[p.id];
+    if(resp==null)return false;
+    const ok=p.inversa?resp==='Nao':resp==='Sim';
+    return !ok;
+  });
   const notaP=PERGUNTAS.find(p=>p.tipo==='nota');
   const doc={auditor,unidadeId,unidadeNome,parceiro,data,apr,local,coment,
     respostas:{...RESPOSTAS},conformidade,naoConformidade:isNC,
