@@ -1,14 +1,14 @@
 <!DOCTYPE html>
+<!-- v20260703_163240 -->
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Auditoria APR</title>
-<link rel="icon" type="image/x-icon" href="./favicon.ico">
-<link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png">
-<link rel="apple-touch-icon" href="./icons/icon-192.png">
-<link rel="manifest" href="./manifest.json">
-<meta name="theme-color" content="#1B6B2E">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡</text></svg>">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
@@ -85,7 +85,6 @@ body{font-family:var(--f);background:var(--bg);color:var(--s900);min-height:100v
 .page.active{display:block}
 .card{background:var(--wh);border-radius:var(--r);padding:22px 24px;box-shadow:var(--shsm);margin-bottom:18px}
 .card-head{display:flex;align-items:center;gap:8px;margin-bottom:18px}
-.card-ico{font-size:16px;line-height:1}
 .card-title{font-size:15px;font-weight:700;flex:1}
 .ctag{font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;background:var(--g100);color:var(--g700)}
 .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:22px}
@@ -225,13 +224,29 @@ code{font-family:monospace;font-size:12px;background:var(--g50);color:var(--g700
 </head>
 <body>
 <!-- SETUP -->
-<div id="s-setup" class="screen" style="align-items:center;justify-content:center;padding:40px 20px;background:var(--g900)">
+<div id="s-setup" class="screen active" style="align-items:center;justify-content:center;padding:40px 20px;background:var(--g900)">
 <div class="auth-box">
   <div class="auth-logo"><div class="icon">&#128293;</div><h1>Configurar Firebase</h1><p>Necessario apenas uma vez</p></div>
   <div class="step"><div class="step-n">1</div><div>Acesse <strong>console.firebase.google.com</strong> e crie um projeto</div></div>
   <div class="step"><div class="step-n">2</div><div>Adicionar app &rarr; Web &rarr; copie o <code>firebaseConfig</code></div></div>
   <div class="step"><div class="step-n">3</div><div>Authentication &rarr; Provedores &rarr; ative <strong>E-mail/senha</strong></div></div>
   <div class="step"><div class="step-n">4</div><div>Firestore Database &rarr; criar em <strong>modo de teste</strong></div></div>
+  <div class="step"><div class="step-n">5</div><div>No Firestore &rarr; <strong>Regras</strong> &rarr; cole e publique as regras abaixo para o formulario publico funcionar:</div></div>
+  <div style="background:#0A3D18;border-radius:8px;padding:12px 14px;margin:0 0 16px;font-family:monospace;font-size:11px;color:#A5D6A7;line-height:1.7">
+    rules_version = '2';<br>
+    service cloud.firestore {<br>
+    &nbsp;&nbsp;match /databases/{database}/documents {<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#FFD54F">// Leitura publica: auditores e unidades</span><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;match /auditores/{id} { allow read: if true; allow write: if request.auth != null; }<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;match /unidades/{id} { allow read: if true; allow write: if request.auth != null; }<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;match /unidades/{id}/parceiros/{pid} { allow read: if true; allow write: if request.auth != null; }<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;match /perguntas/{id} { allow read: if true; allow write: if request.auth != null; }<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#FFD54F">// Auditorias: qualquer um envia, so logado le</span><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;match /auditorias/{id} { allow create: if true; allow read, update, delete: if request.auth != null; }<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#FFD54F">// Usuarios: so logado</span><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;match /usuarios/{id} { allow read, write: if request.auth != null; }<br>
+    &nbsp;&nbsp;}}<br>
+  </div>
   <div style="margin-top:20px">
     <div class="ff"><label>API Key</label><input id="fbKey" placeholder="AIzaSy..."/></div>
     <div class="ff"><label>Auth Domain</label><input id="fbAuth" placeholder="app.firebaseapp.com"/></div>
@@ -256,7 +271,7 @@ code{font-family:monospace;font-size:12px;background:var(--g50);color:var(--g700
 </div>
 
 <!-- FORMULARIO PUBLICO -->
-<div id="s-form" class="screen active">
+<div id="s-form" class="screen">
   <div class="form-topbar">
     <div class="logo">
       <div class="logo-icon">&#128737;</div>
@@ -340,13 +355,13 @@ code{font-family:monospace;font-size:12px;background:var(--g50);color:var(--g700
       <div class="kpi"><div class="kpi-ico">&#127942;</div><div class="kpi-lbl">Melhor Empresa</div><div class="kpi-val" id="kMel" style="font-size:16px;padding-top:8px">--</div><div class="kpi-sub" id="kMelSub"></div></div>
     </div>
     <div class="g2">
-      <div class="card"><div class="card-head"><span class="card-ico" title="Percentual de conformidade">&#9989;</span><span class="card-title">% Conformidade por Empresa</span><span class="ctag">Meta 90%</span></div><canvas id="cBar" height="220"></canvas></div>
-      <div class="card"><div class="card-head"><span class="card-ico" title="Quantidade de nao conformidades">&#9888;</span><span class="card-title">Nao Conformidades</span></div><canvas id="cNC" height="220"></canvas></div>
+      <div class="card"><div class="card-head"><span class="card-title">% Conformidade por Empresa</span><span class="ctag">Meta 90%</span></div><canvas id="cBar" height="220"></canvas></div>
+      <div class="card"><div class="card-head"><span class="card-title">Nao Conformidades</span></div><canvas id="cNC" height="220"></canvas></div>
     </div>
-    <div class="card"><div class="card-head"><span class="card-ico" title="Evolucao da conformidade ao longo do tempo">&#128200;</span><span class="card-title">Evolucao Mensal</span></div><canvas id="cLin" height="260"></canvas></div>
+    <div class="card"><div class="card-head"><span class="card-title">Evolucao Mensal</span></div><canvas id="cLin" height="260"></canvas></div>
     <div class="geq">
-      <div class="card"><div class="card-head"><span class="card-ico" title="Classificacao das empresas por conformidade">&#127942;</span><span class="card-title">Ranking de Empresas</span></div><div class="rank-list" id="rankList"></div></div>
-      <div class="card"><div class="card-head"><span class="card-ico" title="Nota media atribuida nas auditorias">&#11088;</span><span class="card-title">Nota Media por Empresa</span></div><canvas id="cNota" height="240"></canvas></div>
+      <div class="card"><div class="card-head"><span class="card-title">Ranking de Empresas</span></div><div class="rank-list" id="rankList"></div></div>
+      <div class="card"><div class="card-head"><span class="card-title">Nota Media por Empresa</span></div><canvas id="cNota" height="240"></canvas></div>
     </div>
   </div>
 
@@ -519,17 +534,6 @@ const CORES=['#1B6B2E','#16A34A','#D97706','#1D4ED8','#DC2626','#7C3AED','#0891B
 const SECOES=['Identificacao da APR','Identificacao de Riscos','Medidas de Controle','Qualidade da APR','Evidencias','Desvios'];
 const PAGE_TITLES={dashboard:'Dashboard',registros:'Registros',perguntas:'Perguntas',usuarios:'Usuarios',configuracoes:'Configuracoes'};
 
-// === FIREBASE (config fixa — todo usuario usa o mesmo projeto,
-// sem precisar configurar nada no primeiro acesso) ===
-const FIREBASE_CONFIG={
-  apiKey:"AIzaSyC5Kz7Hns8sHhUNKZUODAsPc_JjXI1eyBE",
-  authDomain:"auditoria-apr-1.firebaseapp.com",
-  projectId:"auditoria-apr-1",
-  storageBucket:"auditoria-apr-1.firebasestorage.app",
-  messagingSenderId:"70897842287",
-  appId:"1:70897842287:web:d47ef7b13d9fa91e8ab59a"
-};
-
 // === INIT ===
 window.onload=()=>{
   document.getElementById('fData').value=new Date().toISOString().split('T')[0];
@@ -541,10 +545,19 @@ window.onload=()=>{
     if(pe)openModalPerg(pe.getAttribute('data-id'));
     const pd=e.target.closest('.perg-del');
     if(pd)delPergunta(pd.getAttribute('data-id'));
-    const rd=e.target.closest('.reg-del-btn');
-    if(rd)delAuditoria(rd.getAttribute('data-id'));
   });
-  initFB(FIREBASE_CONFIG);
+  const saved=localStorage.getItem('aprFB');
+  if(saved){
+    const cfg=JSON.parse(saved);
+    // Pre-fill setup fields
+    document.getElementById('fbKey').value=cfg.apiKey||'';
+    document.getElementById('fbAuth').value=cfg.authDomain||'';
+    document.getElementById('fbProj').value=cfg.projectId||'';
+    document.getElementById('fbApp').value=cfg.appId||'';
+    initFB(cfg);
+  } else {
+    showS('s-setup');
+  }
 };
 
 function salvarFB(){
@@ -573,18 +586,27 @@ function initFB(cfg){
     if(!firebase.apps.length)firebase.initializeApp(cfg);
     db=firebase.firestore();
     auth=firebase.auth();
-    // Test connection
+
+    // Load public data immediately — no login needed
+    subscribeAuditores();
+    loadUnidadesForm();
+
+    // Auth listener for panel access
+    auth.onAuthStateChanged(async function(u){
+      if(u) await onLogin(u);
+    });
+
+    // Test connection and show feedback
     db.collection('_ping').limit(1).get()
-      .then(()=>{
+      .then(function(){
         toast('Firebase conectado!','ok');
-        subscribeAuditores();
-        loadUnidadesForm();
-        auth.onAuthStateChanged(async u=>{if(u)await onLogin(u);});
-        setTimeout(()=>irForm(), 800);
+        setTimeout(irForm, 600);
       })
-      .catch(e=>{
-        toast('Erro de conexao: verifique o Project ID e as regras do Firestore','err');
-        console.error(e);
+      .catch(function(e){
+        // Firestore rules may block _ping but that's ok
+        // public data listeners are already active
+        console.warn('ping blocked (normal if rules restrict it):', e.code);
+        setTimeout(irForm, 600);
       });
   }catch(e){
     toast('Erro: '+e.message,'err');
@@ -605,17 +627,33 @@ function acessarPainel(){if(CU)showS('s-app');else showS('s-login');}
 function subscribeAuditores(){
   if(!db)return;
   if(unsubAuditores)unsubAuditores();
-  unsubAuditores=db.collection('auditores').orderBy('nome').onSnapshot(snap=>{
-    AUDITORES=snap.docs.map(d=>({id:d.id,...d.data()}));
-    updateAuditorSel();
-    renderAuditoresConfig();
-    ['dAudit','rAudit'].forEach(id=>{
-      const el=document.getElementById(id);if(!el)return;
-      const v=el.value;el.innerHTML='<option value="">Todos</option>';
-      AUDITORES.forEach(a=>{const o=document.createElement('option');o.value=a.nome;o.textContent=a.nome;el.appendChild(o);});
-      el.value=v;
-    });
-  });
+  unsubAuditores=db.collection('auditores').orderBy('nome').onSnapshot(
+    function(snap){
+      AUDITORES=snap.docs.map(function(d){return {id:d.id,...d.data()};});
+      updateAuditorSel();
+      renderAuditoresConfig();
+      ['dAudit','rAudit'].forEach(function(id){
+        const el=document.getElementById(id);if(!el)return;
+        const v=el.value;
+        el.innerHTML='<option value="">Todos</option>';
+        AUDITORES.forEach(function(a){
+          const o=document.createElement('option');o.value=a.nome;o.textContent=a.nome;el.appendChild(o);
+        });
+        el.value=v;
+      });
+    },
+    function(err){
+      // If rules block anonymous read, show message
+      console.warn('auditores listener error:', err.code);
+      const sel=document.getElementById('fAuditor');
+      if(sel){
+        sel.innerHTML='';
+        const o=document.createElement('option');
+        o.value='';o.textContent='Erro ao carregar auditores';
+        sel.appendChild(o);
+      }
+    }
+  );
 }
 
 function updateAuditorSel(){
@@ -646,19 +684,15 @@ async function addAuditor(){
   const nome=document.getElementById('nAuditor').value.trim();
   if(!nome){toast('Digite o nome','err');return;}
   if(AUDITORES.some(a=>a.nome.toLowerCase()===nome.toLowerCase())){toast('Ja cadastrado','err');return;}
-  try{
-    await db.collection('auditores').add({nome,criadoEm:new Date()});
-    document.getElementById('nAuditor').value='';
-    toast('Auditor adicionado! Ja aparece no formulario.','ok');
-  }catch(e){toast('Erro ao adicionar: '+e.message,'err');}
+  await db.collection('auditores').add({nome,criadoEm:new Date()});
+  document.getElementById('nAuditor').value='';
+  toast('Auditor adicionado! Ja aparece no formulario.','ok');
 }
 
 async function delAuditor(id){
   if(!confirm('Remover este auditor da lista?'))return;
-  try{
-    await db.collection('auditores').doc(id).delete();
-    toast('Removido','ok');
-  }catch(e){toast('Erro ao remover: '+e.message,'err');}
+  await db.collection('auditores').doc(id).delete();
+  toast('Removido','ok');
 }
 
 // === AUTH ===
@@ -673,14 +707,7 @@ async function fazerLogin(){
 
 async function onLogin(u){
   const doc=await db.collection('usuarios').doc(u.uid).get();
-  CU=doc.exists?{uid:u.uid,...doc.data()}:{uid:u.uid,email:u.email,nome:u.displayName||u.email,perfil:'gestor',ativo:true};
-  if(CU.ativo===false){
-    toast('Sua conta foi desativada. Fale com um administrador.','err');
-    await auth.signOut();
-    CU=null;
-    irForm();
-    return;
-  }
+  CU=doc.exists?{uid:u.uid,...doc.data()}:{uid:u.uid,email:u.email,nome:u.displayName||u.email,perfil:'gestor'};
   document.getElementById('uAv').textContent=(CU.nome||'?')[0].toUpperCase();
   document.getElementById('uNm').textContent=CU.nome||CU.email;
   const rb=document.getElementById('roleBadge');
@@ -710,7 +737,7 @@ async function criarUsuario(){
   try{
     const cred=await auth.createUserWithEmailAndPassword(email,senha);
     await cred.user.updateProfile({displayName:nome});
-    await db.collection('usuarios').doc(cred.user.uid).set({nome,email,perfil,ativo:true,criadoEm:new Date()});
+    await db.collection('usuarios').doc(cred.user.uid).set({nome,email,perfil,criadoEm:new Date()});
     document.getElementById('uNome').value='';
     document.getElementById('uEmail').value='';
     document.getElementById('uSenha').value='';
@@ -732,15 +759,10 @@ async function renderUsers(){
     const nm=document.createElement('div');nm.className='item-lbl';nm.textContent=u.nome||'--';
     const em=document.createElement('div');em.className='item-sub';em.textContent=u.email;
     info.appendChild(nm);info.appendChild(em);
-    const inativo=u.ativo===false;
-    if(inativo)row.style.opacity='0.5';
-    const badge=document.createElement('span');badge.className='badge '+(u.perfil==='admin'?'b-admin':'b-gestor');badge.textContent=u.perfil+(inativo?' (inativo)':'');
-    const btnAt=document.createElement('button');btnAt.className='btn-icon';btnAt.title=inativo?'Ativar':'Inativar';
-    btnAt.innerHTML=inativo?'&#128274;':'&#128275;';
-    btnAt.addEventListener('click',function(){toggleAtivoUser(u.id,u.ativo!==false);});
+    const badge=document.createElement('span');badge.className='badge '+(u.perfil==='admin'?'b-admin':'b-gestor');badge.textContent=u.perfil;
     const btn=document.createElement('button');btn.className='btn-icon';btn.innerHTML='&#9999;';
     btn.addEventListener('click',function(){openEditUser(u.id,u.nome||'',u.perfil);});
-    row.appendChild(av);row.appendChild(info);row.appendChild(badge);row.appendChild(btnAt);row.appendChild(btn);
+    row.appendChild(av);row.appendChild(info);row.appendChild(badge);row.appendChild(btn);
     el.appendChild(row);
   });
 }
@@ -750,15 +772,6 @@ function openEditUser(id,nome,perfil){
   document.getElementById('muNome').value=nome;
   document.getElementById('muPerfil').value=perfil;
   openModal('modalUser');
-}
-
-async function toggleAtivoUser(id,ativoAtual){
-  if(id===CU?.uid){toast('Voce nao pode inativar sua propria conta','err');return;}
-  try{
-    await db.collection('usuarios').doc(id).update({ativo:!ativoAtual});
-    toast(ativoAtual?'Usuario inativado':'Usuario ativado','ok');
-    await renderUsers();
-  }catch(e){toast('Erro: '+e.message,'err');}
 }
 
 async function salvarUser(){
@@ -773,13 +786,20 @@ async function salvarUser(){
 // === UNIDADES & PARCEIROS ===
 async function loadUnidadesForm(){
   if(!db)return;
-  const snap=await db.collection('unidades').orderBy('nome').get();
-  UNIDADES=snap.docs.map(d=>({id:d.id,...d.data()}));
-  ['fUnid','dUnid','rUnid','cfgUnidSel'].forEach(id=>{
-    const el=document.getElementById(id);if(!el)return;
-    const first=el.options[0].cloneNode(true);el.innerHTML='';el.appendChild(first);
-    UNIDADES.forEach(u=>{const o=document.createElement('option');o.value=u.id;o.textContent=u.nome;el.appendChild(o);});
-  });
+  try{
+    const snap=await db.collection('unidades').orderBy('nome').get();
+    UNIDADES=snap.docs.map(function(d){return {id:d.id,...d.data()};});
+    ['fUnid','dUnid','rUnid','cfgUnidSel'].forEach(function(id){
+      const el=document.getElementById(id);if(!el)return;
+      const first=el.options[0].cloneNode(true);
+      el.innerHTML='';el.appendChild(first);
+      UNIDADES.forEach(function(u){
+        const o=document.createElement('option');o.value=u.id;o.textContent=u.nome;el.appendChild(o);
+      });
+    });
+  }catch(e){
+    console.warn('loadUnidadesForm error:', e.code);
+  }
 }
 
 async function loadParceiros(){
@@ -1032,13 +1052,8 @@ async function enviarAuditoria(){
     if(ok)obtidos+=p.peso;
   });
   const conformidade=maximos>0?Math.round((obtidos/maximos)*100):0;
-  const isNC=PERGUNTAS.some(p=>{
-    if(p.tipo!=='simnao')return false;
-    const resp=RESPOSTAS[p.id];
-    if(resp==null)return false;
-    const ok=p.inversa?resp==='Nao':resp==='Sim';
-    return !ok;
-  });
+  const isNC=PERGUNTAS.some(p=>p.inversa&&p.secao==='Desvios'&&RESPOSTAS[p.id]==='Sim')
+    ||PERGUNTAS.some(p=>!p.inversa&&p.secao==='Desvios'&&RESPOSTAS[p.id]==='Nao');
   const notaP=PERGUNTAS.find(p=>p.tipo==='nota');
   const doc={auditor,unidadeId,unidadeNome,parceiro,data,apr,local,coment,
     respostas:{...RESPOSTAS},conformidade,naoConformidade:isNC,
@@ -1059,6 +1074,15 @@ function resetForm(){
   document.getElementById('fParc').innerHTML='<option value="">Selecione a unidade primeiro...</option>';
   ['fAPR','fLocal','fComent'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('fData').value=new Date().toISOString().split('T')[0];
+  // Event delegation for dynamically generated buttons
+  document.addEventListener('click',function(e){
+    const pb=e.target.closest('.print-btn');
+    if(pb)openPrint(pb.getAttribute('data-id'));
+    const pe=e.target.closest('.perg-edit');
+    if(pe)openModalPerg(pe.getAttribute('data-id'));
+    const pd=e.target.closest('.perg-del');
+    if(pd)delPergunta(pd.getAttribute('data-id'));
+  });
   RESPOSTAS={};
   document.querySelectorAll('.ro').forEach(el=>el.className='ro');
   document.querySelectorAll('.nb2').forEach(b=>b.classList.remove('sel'));
@@ -1181,22 +1205,11 @@ function renderReg(){
       +'<td><span style="font-weight:800;color:'+nc+'">'+(n!=null?n+'/10':'--')+'</span></td>'
       +'<td><span style="font-weight:700;color:'+corC+'">'+(conf!=null?conf+'%':'--')+'</span></td>'
       +'<td><span class="badge '+(isNC?'b-nc':'b-ok')+'">'+(isNC?'NC':'OK')+'</span></td>'
-      +'<td><button class="btn-icon print-btn" data-id="'+a.id+'" title="Imprimir">&#128438;</button>'
-      +(CU&&CU.perfil==='admin'?'<button class="btn-icon del reg-del-btn" data-id="'+a.id+'" title="Excluir registro">&#128465;</button>':'')
-      +'</td></tr>';
+      +'<td><button class="btn-icon print-btn" data-id="'+a.id+'" title="Imprimir">&#128438;</button></td></tr>';
   }).join(''):'<tr><td colspan="10"><div class="empty"><div class="empty-ico">-</div><div class="empty-txt">Nenhum registro</div></div></td></tr>';
 }
 
 // === IMPRESSAO ===
-async function delAuditoria(id){
-  if(!confirm('Excluir este registro de auditoria? Essa acao nao pode ser desfeita.'))return;
-  try{
-    await db.collection('auditorias').doc(id).delete();
-    toast('Registro excluido','ok');
-    await loadAuditorias();
-  }catch(e){toast('Erro ao excluir: '+e.message,'err');}
-}
-
 function openPrint(id){
   const a=AUDITORIAS.find(x=>x.id===id);if(!a)return;
   const conf=a.conformidade??0;const corC=corConf(conf);const isNC=a.naoConformidade;
