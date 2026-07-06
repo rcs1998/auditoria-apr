@@ -534,10 +534,11 @@ function initFB(cfg){
     if(!firebase.apps.length)firebase.initializeApp(cfg);
     db=firebase.firestore();
     auth=firebase.auth();
-    // Carrega auditores e unidades imediatamente, sem depender de login,
-    // para que o formulario publico funcione para qualquer visitante.
+    // Carrega auditores, unidades e perguntas imediatamente, sem depender
+    // de login, para que o formulario publico funcione para qualquer visitante.
     subscribeAuditores();
     loadUnidadesForm();
+    loadPerguntas();
     auth.onAuthStateChanged(async u=>{if(u)await onLogin(u);});
     irForm();
   }catch(e){
@@ -824,10 +825,32 @@ async function delParceiro(uid,pid){
 
 // === PERGUNTAS ===
 async function loadPerguntas(){
-  const snap=await db.collection('perguntas').orderBy('secao').orderBy('ordem').get();
-  PERGUNTAS=snap.docs.map(d=>({id:d.id,...d.data()}));
-  if(!PERGUNTAS.length)await seedPerguntas();
-  renderFormPerguntas();
+  try{
+    // Evitamos orderBy em dois campos (secao + ordem), que exigiria um
+    // indice composto no Firestore. Buscamos tudo e ordenamos no cliente.
+    const snap=await db.collection('perguntas').get();
+    PERGUNTAS=snap.docs.map(d=>({id:d.id,...d.data()}));
+    ordenarPerguntas();
+    // Semear as perguntas padrao exige permissao de escrita (gestor/admin).
+    // So tenta se ja houver um usuario logado com esse perfil; visitantes
+    // anonimos apenas leem o que ja estiver cadastrado.
+    if(!PERGUNTAS.length && CU){
+      try{await seedPerguntas();}
+      catch(e){console.warn('Nao foi possivel semear as perguntas padrao:',e);}
+    }
+    renderFormPerguntas();
+  }catch(e){
+    console.error('Erro ao carregar perguntas:',e);
+    toast('Nao foi possivel carregar as perguntas. Verifique as regras do Firestore.','err');
+  }
+}
+
+function ordenarPerguntas(){
+  PERGUNTAS.sort((a,b)=>{
+    const sa=SECOES.indexOf(a.secao),sb=SECOES.indexOf(b.secao);
+    if(sa!==sb)return sa-sb;
+    return (a.ordem||0)-(b.ordem||0);
+  });
 }
 
 async function seedPerguntas(){
@@ -848,15 +871,23 @@ async function seedPerguntas(){
   const batch=db.batch();
   defaults.forEach(p=>{const ref=db.collection('perguntas').doc();batch.set(ref,{...p,criadoEm:new Date()});});
   await batch.commit();
-  const snap=await db.collection('perguntas').orderBy('secao').orderBy('ordem').get();
+  const snap=await db.collection('perguntas').get();
   PERGUNTAS=snap.docs.map(d=>({id:d.id,...d.data()}));
+  ordenarPerguntas();
 }
 
 function renderFormPerguntas(){
   const c=document.getElementById('form-perguntas');
   if(!PERGUNTAS.length){c.innerHTML='<div class="empty"><div class="empty-ico">?</div><div class="empty-txt">Nenhuma pergunta configurada.</div></div>';return;}
+  // Agrupa pelas secoes que realmente existem nos dados, em vez de exigir
+  // que o texto bata perfeitamente com a lista fixa SECOES. Isso evita que
+  // uma pergunta "suma" do formulario por causa de acento/maiuscula/espaco
+  // diferente no campo secao. As secoes conhecidas vem primeiro, na ordem
+  // padrao; qualquer secao extra aparece depois.
+  const secoesPresentes=[...new Set(PERGUNTAS.map(p=>p.secao))];
+  const ordemSecoes=[...SECOES.filter(s=>secoesPresentes.includes(s)),...secoesPresentes.filter(s=>!SECOES.includes(s))];
   const frag=document.createDocumentFragment();
-  SECOES.forEach(function(sec,si){
+  ordemSecoes.forEach(function(sec,si){
     const ps=PERGUNTAS.filter(function(p){return p.secao===sec;});
     if(!ps.length)return;
     const hdr=document.createElement('div');
@@ -1148,7 +1179,9 @@ function openPrint(id){
   const a=AUDITORIAS.find(x=>x.id===id);if(!a)return;
   const conf=a.conformidade??0;const corC=corConf(conf);const isNC=a.naoConformidade;
   let secoes='';
-  SECOES.forEach(sec=>{
+  const secoesPresentesP=[...new Set(PERGUNTAS.map(p=>p.secao))];
+  const ordemSecoesP=[...SECOES.filter(s=>secoesPresentesP.includes(s)),...secoesPresentesP.filter(s=>!SECOES.includes(s))];
+  ordemSecoesP.forEach(sec=>{
     const ps=PERGUNTAS.filter(p=>p.secao===sec);if(!ps.length)return;
     secoes+='<div class="print-section"><div class="print-section-title">'+sec+'</div>';
     ps.forEach(p=>{
