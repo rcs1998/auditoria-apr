@@ -1,14 +1,14 @@
 <!DOCTYPE html>
-<!-- v20260703_163240 -->
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Auditoria APR</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡</text></svg>">
+<link rel="icon" type="image/x-icon" href="./favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#1B6B2E">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
@@ -27,7 +27,7 @@
 body{font-family:var(--f);background:var(--bg);color:var(--s900);min-height:100vh}
 .screen{display:none;min-height:100vh}
 .screen.active{display:flex}
-#s-setup,#s-login{align-items:center;justify-content:center;padding:40px 20px;background:var(--g900)}
+#s-login{align-items:center;justify-content:center;padding:40px 20px;background:var(--g900)}
 .auth-box{background:var(--wh);border-radius:20px;padding:44px;width:100%;max-width:460px;box-shadow:0 24px 64px rgba(0,0,0,.3)}
 .auth-logo{text-align:center;margin-bottom:28px}
 .auth-logo .icon{width:52px;height:52px;background:var(--g700);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:25px;margin:0 auto 12px}
@@ -223,41 +223,6 @@ code{font-family:monospace;font-size:12px;background:var(--g50);color:var(--g700
 </style>
 </head>
 <body>
-<!-- SETUP -->
-<div id="s-setup" class="screen active" style="align-items:center;justify-content:center;padding:40px 20px;background:var(--g900)">
-<div class="auth-box">
-  <div class="auth-logo"><div class="icon">&#128293;</div><h1>Configurar Firebase</h1><p>Necessario apenas uma vez</p></div>
-  <div class="step"><div class="step-n">1</div><div>Acesse <strong>console.firebase.google.com</strong> e crie um projeto</div></div>
-  <div class="step"><div class="step-n">2</div><div>Adicionar app &rarr; Web &rarr; copie o <code>firebaseConfig</code></div></div>
-  <div class="step"><div class="step-n">3</div><div>Authentication &rarr; Provedores &rarr; ative <strong>E-mail/senha</strong></div></div>
-  <div class="step"><div class="step-n">4</div><div>Firestore Database &rarr; criar em <strong>modo de teste</strong></div></div>
-  <div class="step"><div class="step-n">5</div><div>No Firestore &rarr; <strong>Regras</strong> &rarr; cole e publique as regras abaixo para o formulario publico funcionar:</div></div>
-  <div style="background:#0A3D18;border-radius:8px;padding:12px 14px;margin:0 0 16px;font-family:monospace;font-size:11px;color:#A5D6A7;line-height:1.7">
-    rules_version = '2';<br>
-    service cloud.firestore {<br>
-    &nbsp;&nbsp;match /databases/{database}/documents {<br>
-    &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#FFD54F">// Leitura publica: auditores e unidades</span><br>
-    &nbsp;&nbsp;&nbsp;&nbsp;match /auditores/{id} { allow read: if true; allow write: if request.auth != null; }<br>
-    &nbsp;&nbsp;&nbsp;&nbsp;match /unidades/{id} { allow read: if true; allow write: if request.auth != null; }<br>
-    &nbsp;&nbsp;&nbsp;&nbsp;match /unidades/{id}/parceiros/{pid} { allow read: if true; allow write: if request.auth != null; }<br>
-    &nbsp;&nbsp;&nbsp;&nbsp;match /perguntas/{id} { allow read: if true; allow write: if request.auth != null; }<br>
-    &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#FFD54F">// Auditorias: qualquer um envia, so logado le</span><br>
-    &nbsp;&nbsp;&nbsp;&nbsp;match /auditorias/{id} { allow create: if true; allow read, update, delete: if request.auth != null; }<br>
-    &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#FFD54F">// Usuarios: so logado</span><br>
-    &nbsp;&nbsp;&nbsp;&nbsp;match /usuarios/{id} { allow read, write: if request.auth != null; }<br>
-    &nbsp;&nbsp;}}<br>
-  </div>
-  <div style="margin-top:20px">
-    <div class="ff"><label>API Key</label><input id="fbKey" placeholder="AIzaSy..."/></div>
-    <div class="ff"><label>Auth Domain</label><input id="fbAuth" placeholder="app.firebaseapp.com"/></div>
-    <div class="ff"><label>Project ID</label><input id="fbProj" placeholder="meu-projeto-123"/></div>
-    <div class="ff"><label>App ID</label><input id="fbApp" placeholder="1:123:web:abc"/></div>
-    <button class="btn btn-p" onclick="salvarFB()">Conectar e Comecar</button>
-    <button class="btn btn-s" onclick="irForm()">Ja configurei - Ir ao Formulario</button>
-  </div>
-</div>
-</div>
-
 <!-- LOGIN -->
 <div id="s-login" class="screen" style="align-items:center;justify-content:center;padding:40px 20px;background:var(--g900)">
 <div class="auth-box">
@@ -271,7 +236,7 @@ code{font-family:monospace;font-size:12px;background:var(--g50);color:var(--g700
 </div>
 
 <!-- FORMULARIO PUBLICO -->
-<div id="s-form" class="screen">
+<div id="s-form" class="screen active">
   <div class="form-topbar">
     <div class="logo">
       <div class="logo-icon">&#128737;</div>
@@ -534,6 +499,21 @@ const CORES=['#1B6B2E','#16A34A','#D97706','#1D4ED8','#DC2626','#7C3AED','#0891B
 const SECOES=['Identificacao da APR','Identificacao de Riscos','Medidas de Controle','Qualidade da APR','Evidencias','Desvios'];
 const PAGE_TITLES={dashboard:'Dashboard',registros:'Registros',perguntas:'Perguntas',usuarios:'Usuarios',configuracoes:'Configuracoes'};
 
+// === FIREBASE (config fixa — todo usuario usa o mesmo projeto,
+// sem precisar configurar nada no primeiro acesso) ===
+// IMPORTANTE: como a leitura de "auditores", "unidades" e "unidades/{id}/parceiros"
+// precisa funcionar no formulario PUBLICO (sem login), as regras de seguranca do
+// Firestore devem permitir "read" publico nessas colecoes e exigir autenticacao
+// apenas para "write" (e para toda operacao em "auditorias" e "usuarios").
+const FIREBASE_CONFIG={
+  apiKey:"AIzaSyC5Kz7Hns8sHhUNKZUODAsPc_JjXI1eyBE",
+  authDomain:"auditoria-apr-1.firebaseapp.com",
+  projectId:"auditoria-apr-1",
+  storageBucket:"auditoria-apr-1.firebasestorage.app",
+  messagingSenderId:"70897842287",
+  appId:"1:70897842287:web:d47ef7b13d9fa91e8ab59a"
+};
+
 // === INIT ===
 window.onload=()=>{
   document.getElementById('fData').value=new Date().toISOString().split('T')[0];
@@ -546,70 +526,22 @@ window.onload=()=>{
     const pd=e.target.closest('.perg-del');
     if(pd)delPergunta(pd.getAttribute('data-id'));
   });
-  const saved=localStorage.getItem('aprFB');
-  if(saved){
-    const cfg=JSON.parse(saved);
-    // Pre-fill setup fields
-    document.getElementById('fbKey').value=cfg.apiKey||'';
-    document.getElementById('fbAuth').value=cfg.authDomain||'';
-    document.getElementById('fbProj').value=cfg.projectId||'';
-    document.getElementById('fbApp').value=cfg.appId||'';
-    initFB(cfg);
-  } else {
-    showS('s-setup');
-  }
+  initFB(FIREBASE_CONFIG);
 };
-
-function salvarFB(){
-  const cfg={
-    apiKey:document.getElementById('fbKey').value.trim(),
-    authDomain:document.getElementById('fbAuth').value.trim(),
-    projectId:document.getElementById('fbProj').value.trim(),
-    appId:document.getElementById('fbApp').value.trim()
-  };
-  if(!cfg.apiKey){toast('Preencha a API Key','err');return;}
-  if(!cfg.projectId){toast('Preencha o Project ID','err');return;}
-  if(!cfg.authDomain){toast('Preencha o Auth Domain','err');return;}
-  if(!cfg.appId){toast('Preencha o App ID','err');return;}
-  toast('Conectando...','');
-  localStorage.setItem('aprFB',JSON.stringify(cfg));
-  // Reset firebase if already initialized
-  if(firebase.apps.length){
-    firebase.apps[0].delete().then(()=>initFB(cfg)).catch(()=>initFB(cfg));
-  } else {
-    initFB(cfg);
-  }
-}
 
 function initFB(cfg){
   try{
     if(!firebase.apps.length)firebase.initializeApp(cfg);
     db=firebase.firestore();
     auth=firebase.auth();
-
-    // Load public data immediately — no login needed
+    // Carrega auditores e unidades imediatamente, sem depender de login,
+    // para que o formulario publico funcione para qualquer visitante.
     subscribeAuditores();
     loadUnidadesForm();
-
-    // Auth listener for panel access
-    auth.onAuthStateChanged(async function(u){
-      if(u) await onLogin(u);
-    });
-
-    // Test connection and show feedback
-    db.collection('_ping').limit(1).get()
-      .then(function(){
-        toast('Firebase conectado!','ok');
-        setTimeout(irForm, 600);
-      })
-      .catch(function(e){
-        // Firestore rules may block _ping but that's ok
-        // public data listeners are already active
-        console.warn('ping blocked (normal if rules restrict it):', e.code);
-        setTimeout(irForm, 600);
-      });
+    auth.onAuthStateChanged(async u=>{if(u)await onLogin(u);});
+    irForm();
   }catch(e){
-    toast('Erro: '+e.message,'err');
+    toast('Erro ao conectar ao Firebase: '+e.message,'err');
     console.error(e);
   }
 }
@@ -627,33 +559,20 @@ function acessarPainel(){if(CU)showS('s-app');else showS('s-login');}
 function subscribeAuditores(){
   if(!db)return;
   if(unsubAuditores)unsubAuditores();
-  unsubAuditores=db.collection('auditores').orderBy('nome').onSnapshot(
-    function(snap){
-      AUDITORES=snap.docs.map(function(d){return {id:d.id,...d.data()};});
-      updateAuditorSel();
-      renderAuditoresConfig();
-      ['dAudit','rAudit'].forEach(function(id){
-        const el=document.getElementById(id);if(!el)return;
-        const v=el.value;
-        el.innerHTML='<option value="">Todos</option>';
-        AUDITORES.forEach(function(a){
-          const o=document.createElement('option');o.value=a.nome;o.textContent=a.nome;el.appendChild(o);
-        });
-        el.value=v;
-      });
-    },
-    function(err){
-      // If rules block anonymous read, show message
-      console.warn('auditores listener error:', err.code);
-      const sel=document.getElementById('fAuditor');
-      if(sel){
-        sel.innerHTML='';
-        const o=document.createElement('option');
-        o.value='';o.textContent='Erro ao carregar auditores';
-        sel.appendChild(o);
-      }
-    }
-  );
+  unsubAuditores=db.collection('auditores').orderBy('nome').onSnapshot(snap=>{
+    AUDITORES=snap.docs.map(d=>({id:d.id,...d.data()}));
+    updateAuditorSel();
+    renderAuditoresConfig();
+    ['dAudit','rAudit'].forEach(id=>{
+      const el=document.getElementById(id);if(!el)return;
+      const v=el.value;el.innerHTML='<option value="">Todos</option>';
+      AUDITORES.forEach(a=>{const o=document.createElement('option');o.value=a.nome;o.textContent=a.nome;el.appendChild(o);});
+      el.value=v;
+    });
+  },err=>{
+    console.error('Erro ao carregar auditores:',err);
+    toast('Nao foi possivel carregar os auditores. Verifique as regras do Firestore.','err');
+  });
 }
 
 function updateAuditorSel(){
@@ -684,15 +603,19 @@ async function addAuditor(){
   const nome=document.getElementById('nAuditor').value.trim();
   if(!nome){toast('Digite o nome','err');return;}
   if(AUDITORES.some(a=>a.nome.toLowerCase()===nome.toLowerCase())){toast('Ja cadastrado','err');return;}
-  await db.collection('auditores').add({nome,criadoEm:new Date()});
-  document.getElementById('nAuditor').value='';
-  toast('Auditor adicionado! Ja aparece no formulario.','ok');
+  try{
+    await db.collection('auditores').add({nome,criadoEm:new Date()});
+    document.getElementById('nAuditor').value='';
+    toast('Auditor adicionado! Ja aparece no formulario.','ok');
+  }catch(e){toast('Erro ao adicionar: '+e.message,'err');}
 }
 
 async function delAuditor(id){
   if(!confirm('Remover este auditor da lista?'))return;
-  await db.collection('auditores').doc(id).delete();
-  toast('Removido','ok');
+  try{
+    await db.collection('auditores').doc(id).delete();
+    toast('Removido','ok');
+  }catch(e){toast('Erro ao remover: '+e.message,'err');}
 }
 
 // === AUTH ===
@@ -707,7 +630,14 @@ async function fazerLogin(){
 
 async function onLogin(u){
   const doc=await db.collection('usuarios').doc(u.uid).get();
-  CU=doc.exists?{uid:u.uid,...doc.data()}:{uid:u.uid,email:u.email,nome:u.displayName||u.email,perfil:'gestor'};
+  CU=doc.exists?{uid:u.uid,...doc.data()}:{uid:u.uid,email:u.email,nome:u.displayName||u.email,perfil:'gestor',ativo:true};
+  if(CU.ativo===false){
+    toast('Sua conta foi desativada. Fale com um administrador.','err');
+    await auth.signOut();
+    CU=null;
+    irForm();
+    return;
+  }
   document.getElementById('uAv').textContent=(CU.nome||'?')[0].toUpperCase();
   document.getElementById('uNm').textContent=CU.nome||CU.email;
   const rb=document.getElementById('roleBadge');
@@ -737,7 +667,7 @@ async function criarUsuario(){
   try{
     const cred=await auth.createUserWithEmailAndPassword(email,senha);
     await cred.user.updateProfile({displayName:nome});
-    await db.collection('usuarios').doc(cred.user.uid).set({nome,email,perfil,criadoEm:new Date()});
+    await db.collection('usuarios').doc(cred.user.uid).set({nome,email,perfil,ativo:true,criadoEm:new Date()});
     document.getElementById('uNome').value='';
     document.getElementById('uEmail').value='';
     document.getElementById('uSenha').value='';
@@ -759,10 +689,15 @@ async function renderUsers(){
     const nm=document.createElement('div');nm.className='item-lbl';nm.textContent=u.nome||'--';
     const em=document.createElement('div');em.className='item-sub';em.textContent=u.email;
     info.appendChild(nm);info.appendChild(em);
-    const badge=document.createElement('span');badge.className='badge '+(u.perfil==='admin'?'b-admin':'b-gestor');badge.textContent=u.perfil;
+    const inativo=u.ativo===false;
+    if(inativo)row.style.opacity='0.5';
+    const badge=document.createElement('span');badge.className='badge '+(u.perfil==='admin'?'b-admin':'b-gestor');badge.textContent=u.perfil+(inativo?' (inativo)':'');
+    const btnAt=document.createElement('button');btnAt.className='btn-icon';btnAt.title=inativo?'Ativar':'Inativar';
+    btnAt.innerHTML=inativo?'&#128274;':'&#128275;';
+    btnAt.addEventListener('click',function(){toggleAtivoUser(u.id,u.ativo!==false);});
     const btn=document.createElement('button');btn.className='btn-icon';btn.innerHTML='&#9999;';
     btn.addEventListener('click',function(){openEditUser(u.id,u.nome||'',u.perfil);});
-    row.appendChild(av);row.appendChild(info);row.appendChild(badge);row.appendChild(btn);
+    row.appendChild(av);row.appendChild(info);row.appendChild(badge);row.appendChild(btnAt);row.appendChild(btn);
     el.appendChild(row);
   });
 }
@@ -772,6 +707,15 @@ function openEditUser(id,nome,perfil){
   document.getElementById('muNome').value=nome;
   document.getElementById('muPerfil').value=perfil;
   openModal('modalUser');
+}
+
+async function toggleAtivoUser(id,ativoAtual){
+  if(id===CU?.uid){toast('Voce nao pode inativar sua propria conta','err');return;}
+  try{
+    await db.collection('usuarios').doc(id).update({ativo:!ativoAtual});
+    toast(ativoAtual?'Usuario inativado':'Usuario ativado','ok');
+    await renderUsers();
+  }catch(e){toast('Erro: '+e.message,'err');}
 }
 
 async function salvarUser(){
@@ -786,20 +730,13 @@ async function salvarUser(){
 // === UNIDADES & PARCEIROS ===
 async function loadUnidadesForm(){
   if(!db)return;
-  try{
-    const snap=await db.collection('unidades').orderBy('nome').get();
-    UNIDADES=snap.docs.map(function(d){return {id:d.id,...d.data()};});
-    ['fUnid','dUnid','rUnid','cfgUnidSel'].forEach(function(id){
-      const el=document.getElementById(id);if(!el)return;
-      const first=el.options[0].cloneNode(true);
-      el.innerHTML='';el.appendChild(first);
-      UNIDADES.forEach(function(u){
-        const o=document.createElement('option');o.value=u.id;o.textContent=u.nome;el.appendChild(o);
-      });
-    });
-  }catch(e){
-    console.warn('loadUnidadesForm error:', e.code);
-  }
+  const snap=await db.collection('unidades').orderBy('nome').get();
+  UNIDADES=snap.docs.map(d=>({id:d.id,...d.data()}));
+  ['fUnid','dUnid','rUnid','cfgUnidSel'].forEach(id=>{
+    const el=document.getElementById(id);if(!el)return;
+    const first=el.options[0].cloneNode(true);el.innerHTML='';el.appendChild(first);
+    UNIDADES.forEach(u=>{const o=document.createElement('option');o.value=u.id;o.textContent=u.nome;el.appendChild(o);});
+  });
 }
 
 async function loadParceiros(){
@@ -831,6 +768,7 @@ async function renderUnidadesCfg(){
 async function addUnidade(){
   const nome=document.getElementById('nUnid').value.trim();
   if(!nome){toast('Digite o nome','err');return;}
+  if(UNIDADES.some(u=>u.nome.toLowerCase()===nome.toLowerCase())){toast('Ja cadastrada','err');return;}
   await db.collection('unidades').add({nome,criadoEm:new Date()});
   document.getElementById('nUnid').value='';toast('Unidade adicionada!','ok');
   await renderUnidadesCfg();
@@ -850,7 +788,7 @@ async function renderParcCfg(){
   const row=document.getElementById('addParcRow');
   if(!uid){lista.innerHTML='';row.style.display='none';return;}
   const snap=await db.collection('unidades').doc(uid).collection('parceiros').orderBy('nome').get();
-
+  lista.innerHTML='';
   if(!snap.docs.length){lista.innerHTML='<div style="font-size:13px;color:var(--s500)">Nenhum parceiro.</div>';}
   else{snap.docs.forEach(function(d){
     const pnome=d.data().nome,pid=d.id,puid=uid;
@@ -868,9 +806,14 @@ async function addParceiro(){
   const uid=document.getElementById('cfgUnidSel').value;
   const nome=document.getElementById('nParc').value.trim();
   if(!uid||!nome){toast('Selecione a unidade e digite o nome','err');return;}
-  await db.collection('unidades').doc(uid).collection('parceiros').add({nome,criadoEm:new Date()});
-  document.getElementById('nParc').value='';toast('Parceiro adicionado!','ok');
-  await renderParcCfg();await loadUnidadesForm();
+  try{
+    const snap=await db.collection('unidades').doc(uid).collection('parceiros').get();
+    const jaExiste=snap.docs.some(d=>(d.data().nome||'').toLowerCase()===nome.toLowerCase());
+    if(jaExiste){toast('Este parceiro ja esta cadastrado nesta unidade','err');return;}
+    await db.collection('unidades').doc(uid).collection('parceiros').add({nome,criadoEm:new Date()});
+    document.getElementById('nParc').value='';toast('Parceiro adicionado!','ok');
+    await renderParcCfg();await loadUnidadesForm();
+  }catch(e){toast('Erro: '+e.message,'err');}
 }
 
 async function delParceiro(uid,pid){
@@ -1074,15 +1017,6 @@ function resetForm(){
   document.getElementById('fParc').innerHTML='<option value="">Selecione a unidade primeiro...</option>';
   ['fAPR','fLocal','fComent'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('fData').value=new Date().toISOString().split('T')[0];
-  // Event delegation for dynamically generated buttons
-  document.addEventListener('click',function(e){
-    const pb=e.target.closest('.print-btn');
-    if(pb)openPrint(pb.getAttribute('data-id'));
-    const pe=e.target.closest('.perg-edit');
-    if(pe)openModalPerg(pe.getAttribute('data-id'));
-    const pd=e.target.closest('.perg-del');
-    if(pd)delPergunta(pd.getAttribute('data-id'));
-  });
   RESPOSTAS={};
   document.querySelectorAll('.ro').forEach(el=>el.className='ro');
   document.querySelectorAll('.nb2').forEach(b=>b.classList.remove('sel'));
