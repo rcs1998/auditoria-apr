@@ -1022,16 +1022,15 @@ async function enviarAuditoria(){
   if(!auditor||!unidadeId||!parceiro||!data||!apr||!local){toast('Preencha todos os campos obrigatorios (*)','err');return;}
   for(const p of PERGUNTAS){if(RESPOSTAS[p.id]===undefined){toast('Responda: '+p.texto,'err');return;}}
   const unidadeNome=UNIDADES.find(u=>u.id===unidadeId)?.nome||unidadeId;
-  let obtidos=0,maximos=0;
+  let obtidos=0,maximos=0,isNC=false;
   PERGUNTAS.forEach(p=>{
     if(p.tipo==='nota')return;
     maximos+=p.peso;
     const ok=p.inversa?RESPOSTAS[p.id]==='Nao':RESPOSTAS[p.id]==='Sim';
     if(ok)obtidos+=p.peso;
+    if(p.secao==='Desvios'&&!ok)isNC=true;
   });
   const conformidade=maximos>0?Math.round((obtidos/maximos)*100):0;
-  const isNC=PERGUNTAS.some(p=>p.inversa&&p.secao==='Desvios'&&RESPOSTAS[p.id]==='Sim')
-    ||PERGUNTAS.some(p=>!p.inversa&&p.secao==='Desvios'&&RESPOSTAS[p.id]==='Nao');
   const notaP=PERGUNTAS.find(p=>p.tipo==='nota');
   const doc={auditor,unidadeId,unidadeNome,parceiro,data,apr,local,coment,
     respostas:{...RESPOSTAS},conformidade,naoConformidade:isNC,
@@ -1062,9 +1061,47 @@ function resetForm(){
 async function loadAuditorias(){
   try{
     const snap=await db.collection('auditorias').orderBy('enviadoEm','desc').limit(500).get();
-    AUDITORIAS=snap.docs.map(d=>({id:d.id,...d.data()}));
+    AUDITORIAS=snap.docs.map(d=>recalcAuditoria({id:d.id,...d.data()}));
+    atualizarFiltroEmpresas();
     renderDash();renderReg();
   }catch(e){console.warn(e);}
+}
+
+// Recalcula conformidade, nao-conformidade e nota a partir das respostas brutas
+// e das perguntas ATUAIS, em vez de confiar cegamente no valor gravado no
+// documento. Isso corrige exibicoes desatualizadas quando uma pergunta muda
+// (ex: marcar/desmarcar "Resposta inversa") sem precisar editar dados antigos.
+function recalcAuditoria(a){
+  const respostas=a.respostas||{};
+  let obtidos=0,maximos=0,isNC=false,nota=null,temPerguntaRespondida=false;
+  PERGUNTAS.forEach(p=>{
+    const resp=respostas[p.id];
+    if(p.tipo==='nota'){if(resp!=null)nota=resp;return;}
+    if(resp===undefined)return; // pergunta nao existia quando a auditoria foi enviada
+    temPerguntaRespondida=true;
+    maximos+=p.peso;
+    const ok=p.inversa?resp==='Nao':resp==='Sim';
+    if(ok)obtidos+=p.peso;
+    if(p.secao==='Desvios'&&!ok)isNC=true;
+  });
+  if(temPerguntaRespondida){
+    a.conformidade=maximos>0?Math.round((obtidos/maximos)*100):0;
+    a.naoConformidade=isNC;
+  }
+  if(nota!=null)a.nota=nota;
+  return a;
+}
+
+// Preenche os filtros "Empresa" do Dashboard e de Registros com as empresas
+// que realmente aparecem nas auditorias carregadas (antes ficavam sem opcoes).
+function atualizarFiltroEmpresas(){
+  const nomes=[...new Set(AUDITORIAS.map(a=>a.parceiro).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  ['dParc','rParc'].forEach(id=>{
+    const el=document.getElementById(id);if(!el)return;
+    const v=el.value;el.innerHTML='<option value="">Todas</option>';
+    nomes.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;el.appendChild(o);});
+    if(nomes.includes(v))el.value=v;
+  });
 }
 
 function getFilt(unid,parc,audit,per,nc){
