@@ -320,19 +320,19 @@ code{font-family:monospace;font-size:12px;background:var(--g50);color:var(--g700
       <button class="btn-ref" onclick="loadAuditorias()">Atualizar</button>
     </div>
     <div class="kpi-grid">
-      <div class="kpi"><div class="kpi-ico">&#9989;</div><div class="kpi-lbl">Conformidade Geral<button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Media da % de conformidade entre as empresas do filtro atual. Primeiro calculamos a conformidade media de cada empresa (soma dos pesos das perguntas Sim/Nao respondidas corretamente, dividida pelo peso total possivel); depois tiramos a media entre as empresas. Nao e a media simples de todas as auditorias juntas.">?</button></div><div class="kpi-val" id="kConf">--</div><div class="kpi-sub">media ponderada</div></div>
-      <div class="kpi"><div class="kpi-ico">&#128203;</div><div class="kpi-lbl">Auditorias<button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Quantidade de auditorias enviadas que atendem aos filtros selecionados acima (unidade, empresa, auditor e periodo).">?</button></div><div class="kpi-val" id="kAud">--</div><div class="kpi-sub">no periodo</div></div>
-      <div class="kpi"><div class="kpi-ico">&#9888;</div><div class="kpi-lbl">Nao Conformidades<button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Numero de auditorias marcadas como Nao Conforme dentro do filtro atual. Uma auditoria vira NC quando alguma pergunta da secao 'Desvios' e respondida fora do padrao esperado (por exemplo, indicando que um desvio foi encontrado).">?</button></div><div class="kpi-val" id="kNC">--</div><div class="kpi-sub">identificadas</div></div>
-      <div class="kpi"><div class="kpi-ico">&#127942;</div><div class="kpi-lbl">Melhor Empresa<button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Empresa com a maior % media de conformidade entre as que aparecem no filtro atual.">?</button></div><div class="kpi-val" id="kMel" style="font-size:16px;padding-top:8px">--</div><div class="kpi-sub" id="kMelSub"></div></div>
+      <div class="kpi"><div class="kpi-ico">&#9989;</div><div class="kpi-lbl">Conformidade Geral<button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Média da % de conformidade entre as empresas do filtro atual. Primeiro calculamos a conformidade média de cada empresa (soma dos pesos das perguntas Sim/Não respondidas corretamente, dividida pelo peso total possível); depois tiramos a média entre as empresas. Não é a média simples de todas as auditorias juntas.">?</button></div><div class="kpi-val" id="kConf">--</div><div class="kpi-sub">media ponderada</div></div>
+      <div class="kpi"><div class="kpi-ico">&#128203;</div><div class="kpi-lbl">Auditorias<button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Quantidade de auditorias enviadas que atendem aos filtros selecionados acima (unidade, empresa, auditor e período).">?</button></div><div class="kpi-val" id="kAud">--</div><div class="kpi-sub">no periodo</div></div>
+      <div class="kpi"><div class="kpi-ico">&#9888;</div><div class="kpi-lbl">Nao Conformidades<button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Número de auditorias marcadas como Não Conforme dentro do filtro atual. Uma auditoria vira NC quando qualquer pergunta do tipo Sim/Não é respondida fora do padrão de conformidade esperado, em qualquer seção — não apenas na seção Desvios.">?</button></div><div class="kpi-val" id="kNC">--</div><div class="kpi-sub">identificadas</div></div>
+      <div class="kpi"><div class="kpi-ico">&#127942;</div><div class="kpi-lbl">Melhor Empresa<button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Empresa com a maior % média de conformidade entre as que aparecem no filtro atual.">?</button></div><div class="kpi-val" id="kMel" style="font-size:16px;padding-top:8px">--</div><div class="kpi-sub" id="kMelSub"></div></div>
     </div>
     <div class="g2">
-      <div class="card"><div class="card-head"><span class="card-title">% Conformidade por Empresa</span><button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Cada barra mostra a % media de conformidade da empresa nas auditorias filtradas (media das conformidades de cada auditoria dessa empresa). A linha de meta 90% e apenas uma referencia visual e nao afeta o calculo.">?</button><span class="ctag">Meta 90%</span></div><div class="chart-wrap" style="height:260px"><canvas id="cBar"></canvas></div></div>
-      <div class="card"><div class="card-head"><span class="card-title">Nao Conformidades</span><button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Distribuicao da quantidade de auditorias marcadas como Nao Conforme entre as empresas do filtro atual.">?</button></div><div class="chart-wrap" style="height:260px"><canvas id="cNC"></canvas></div></div>
+      <div class="card"><div class="card-head"><span class="card-title">% Conformidade por Empresa</span><button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Cada barra mostra a % média de conformidade da empresa nas auditorias filtradas (média das conformidades de cada auditoria dessa empresa). A linha de meta 90% é apenas uma referência visual e não afeta o cálculo.">?</button><span class="ctag">Meta 90%</span></div><div class="chart-wrap" style="height:260px"><canvas id="cBar"></canvas></div></div>
+      <div class="card"><div class="card-head"><span class="card-title">Nao Conformidades</span><button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Distribuição da quantidade de auditorias marcadas como Não Conforme (qualquer pergunta fora do padrão de conformidade, em qualquer seção) entre as empresas do filtro atual.">?</button></div><div class="chart-wrap" style="height:260px"><canvas id="cNC"></canvas></div></div>
     </div>
-    <div class="card"><div class="card-head"><span class="card-title">Evolucao Mensal</span><button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Media mensal da % de conformidade de cada empresa, agrupada pelo mes da data da auditoria (nao pela data de envio). Um mes sem auditoria de uma empresa aparece como uma quebra na linha dessa empresa.">?</button></div><div class="chart-wrap" style="height:300px"><canvas id="cLin"></canvas></div></div>
+    <div class="card"><div class="card-head"><span class="card-title">Evolucao Mensal</span><button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Média mensal da % de conformidade de cada empresa, agrupada pelo mês da data da auditoria (não pela data de envio). Um mês sem auditoria de uma empresa aparece como uma quebra na linha dessa empresa.">?</button></div><div class="chart-wrap" style="height:300px"><canvas id="cLin"></canvas></div></div>
     <div class="geq">
-      <div class="card"><div class="card-head"><span class="card-title">Ranking de Empresas</span><button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Empresas ordenadas da maior para a menor % media de conformidade, dentro do filtro atual. O selo ao lado do nome mostra quantas Nao Conformidades essa empresa teve no periodo filtrado.">?</button></div><div class="rank-list" id="rankList"></div></div>
-      <div class="card"><div class="card-head"><span class="card-title">Nota Media por Empresa</span><button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Media das respostas da pergunta do tipo 'Nota (0 a 10)' (configurada na secao Qualidade da APR), calculada por empresa dentro do filtro atual.">?</button></div><div class="chart-wrap" style="height:280px"><canvas id="cNota"></canvas></div></div>
+      <div class="card"><div class="card-head"><span class="card-title">Ranking de Empresas</span><button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Empresas ordenadas da maior para a menor % média de conformidade, dentro do filtro atual. O selo ao lado do nome mostra quantas Não Conformidades essa empresa teve no período filtrado.">?</button></div><div class="rank-list" id="rankList"></div></div>
+      <div class="card"><div class="card-head"><span class="card-title">Nota Media por Empresa</span><button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Média das respostas da pergunta do tipo 'Nota (0 a 10)' (configurada na seção Qualidade da APR), calculada por empresa dentro do filtro atual.">?</button></div><div class="chart-wrap" style="height:280px"><canvas id="cNota"></canvas></div></div>
     </div>
   </div>
 
@@ -1033,7 +1033,7 @@ async function enviarAuditoria(){
     maximos+=p.peso;
     const ok=p.inversa?RESPOSTAS[p.id]==='Nao':RESPOSTAS[p.id]==='Sim';
     if(ok)obtidos+=p.peso;
-    if(p.secao==='Desvios'&&!ok)isNC=true;
+    if(!ok)isNC=true;
   });
   const conformidade=maximos>0?Math.round((obtidos/maximos)*100):0;
   const notaP=PERGUNTAS.find(p=>p.tipo==='nota');
@@ -1087,7 +1087,7 @@ function recalcAuditoria(a){
     maximos+=p.peso;
     const ok=p.inversa?resp==='Nao':resp==='Sim';
     if(ok)obtidos+=p.peso;
-    if(p.secao==='Desvios'&&!ok)isNC=true;
+    if(!ok)isNC=true;
   });
   if(temPerguntaRespondida){
     a.conformidade=maximos>0?Math.round((obtidos/maximos)*100):0;
