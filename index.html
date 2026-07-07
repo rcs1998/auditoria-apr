@@ -334,6 +334,11 @@ code{font-family:monospace;font-size:12px;background:var(--g50);color:var(--g700
       <div class="card"><div class="card-head"><span class="card-title">Ranking de Empresas</span><button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Empresas ordenadas da maior para a menor % média de conformidade, dentro do filtro atual. O selo ao lado do nome mostra quantas Não Conformidades essa empresa teve no período filtrado.">?</button></div><div class="rank-list" id="rankList"></div></div>
       <div class="card"><div class="card-head"><span class="card-title">Nota Media por Empresa</span><button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Média das respostas da pergunta do tipo 'Nota (0 a 10)' (configurada na seção Qualidade da APR), calculada por empresa dentro do filtro atual.">?</button></div><div class="chart-wrap" style="height:280px"><canvas id="cNota"></canvas></div></div>
     </div>
+    <div class="card">
+      <div class="card-head"><span class="card-title">Perguntas com Mais Nao Conformidades</span><button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Mostra, entre as auditorias do filtro atual, quais perguntas mais vezes foram respondidas fora do padrão esperado de conformidade — ou seja, os pontos que mais geram não conformidade. Cada barra é uma pergunta; o número é quantas vezes ela falhou nesse conjunto de auditorias.">?</button></div>
+      <div class="chart-wrap" style="height:320px"><canvas id="cNCQ"></canvas></div>
+      <div class="empty" id="ncqEmpty" style="display:none"><div class="empty-ico">-</div><div class="empty-txt">Nenhuma nao conformidade no filtro atual</div></div>
+    </div>
   </div>
 
   <!-- REGISTROS -->
@@ -1194,6 +1199,40 @@ function renderDash(){
       backgroundColor:CORES.slice(0,emps.length).map(c=>c+'BB'),borderColor:CORES.slice(0,emps.length),borderWidth:2,borderRadius:8}]},
     options:{maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'Nota: '+c.raw+'/10'}}},
       scales:{y:{min:0,max:10,grid:{color:'#F1F5F9'},ticks:{font:{family:'Outfit',size:12}}},x:{grid:{display:false},ticks:{font:{family:'Outfit',size:12}}}},animation:{duration:600}}
+  });
+
+  // Perguntas com mais Nao Conformidades: conta, entre as auditorias filtradas,
+  // quantas vezes cada pergunta Sim/Nao foi respondida fora do padrao esperado.
+  const ncPorPergunta={};
+  dados.forEach(a=>{
+    const respostas=a.respostas||{};
+    PERGUNTAS.forEach(p=>{
+      if(p.tipo==='nota')return;
+      const resp=respostas[p.id];
+      if(resp===undefined)return;
+      const ok=p.inversa?resp==='Nao':resp==='Sim';
+      if(!ok){
+        if(!ncPorPergunta[p.id])ncPorPergunta[p.id]={texto:p.texto,secao:p.secao,count:0};
+        ncPorPergunta[p.id].count++;
+      }
+    });
+  });
+  const rankNCQ=Object.values(ncPorPergunta).sort((a,b)=>b.count-a.count).slice(0,8);
+  kc('ncq');
+  document.getElementById('cNCQ').style.display=rankNCQ.length?'block':'none';
+  document.getElementById('ncqEmpty').style.display=rankNCQ.length?'none':'block';
+  if(rankNCQ.length)CHARTS['ncq']=new Chart(document.getElementById('cNCQ'),{
+    type:'bar',
+    data:{labels:rankNCQ.map(r=>r.texto.length>42?r.texto.slice(0,42)+'…':r.texto),
+      datasets:[{data:rankNCQ.map(r=>r.count),backgroundColor:'#DC2626CC',borderColor:'#DC2626',borderWidth:2,borderRadius:6}]},
+    options:{indexAxis:'y',maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{
+        title:c=>rankNCQ[c[0].dataIndex].texto,
+        label:c=>c.raw+' ocorrencia'+(c.raw===1?'':'s')+' — secao: '+rankNCQ[c[0].dataIndex].secao
+      }}},
+      scales:{x:{beginAtZero:true,ticks:{precision:0,font:{family:'Outfit',size:12}},grid:{color:'#F1F5F9'}},
+        y:{ticks:{font:{family:'Outfit',size:11}},grid:{display:false}}},
+      animation:{duration:600}}
   });
 }
 
