@@ -96,7 +96,7 @@ body{font-family:var(--f);background:var(--bg);color:var(--s900);min-height:100v
 .kpi:nth-child(3)::before{background:var(--red)}
 .kpi:nth-child(4)::before{background:var(--yel)}
 .kpi-ico{font-size:20px;margin-bottom:7px}
-.kpi-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--s500)}
+.kpi-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--s500);display:flex;align-items:center;gap:6px}
 .kpi-val{font-size:32px;font-weight:900;line-height:1;margin:5px 0 3px}
 .kpi:nth-child(1) .kpi-val{color:var(--g700)}
 .kpi:nth-child(2) .kpi-val{color:var(--blu)}
@@ -107,6 +107,10 @@ body{font-family:var(--f);background:var(--bg);color:var(--s900);min-height:100v
 .geq{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
 .chart-wrap{position:relative;width:100%}
 .chart-wrap canvas{width:100%!important;height:100%!important}
+.info-btn{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:var(--s100);color:var(--s500);border:1.5px solid var(--s300);font-family:var(--f);font-size:11px;font-weight:800;cursor:pointer;flex-shrink:0;line-height:1;padding:0;transition:all .15s}
+.info-btn:hover{background:var(--g100);color:var(--g700);border-color:var(--g500)}
+.info-pop{position:fixed;z-index:500;max-width:280px;background:var(--s900);color:#fff;padding:12px 14px;border-radius:var(--rsm);font-size:12.5px;line-height:1.55;box-shadow:var(--sh);display:none}
+.info-pop b{color:var(--g100)}
 .tbl-wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:13px}
 thead tr{background:var(--g50)}
@@ -316,19 +320,19 @@ code{font-family:monospace;font-size:12px;background:var(--g50);color:var(--g700
       <button class="btn-ref" onclick="loadAuditorias()">Atualizar</button>
     </div>
     <div class="kpi-grid">
-      <div class="kpi"><div class="kpi-ico">&#9989;</div><div class="kpi-lbl">Conformidade Geral</div><div class="kpi-val" id="kConf">--</div><div class="kpi-sub">media ponderada</div></div>
-      <div class="kpi"><div class="kpi-ico">&#128203;</div><div class="kpi-lbl">Auditorias</div><div class="kpi-val" id="kAud">--</div><div class="kpi-sub">no periodo</div></div>
-      <div class="kpi"><div class="kpi-ico">&#9888;</div><div class="kpi-lbl">Nao Conformidades</div><div class="kpi-val" id="kNC">--</div><div class="kpi-sub">identificadas</div></div>
-      <div class="kpi"><div class="kpi-ico">&#127942;</div><div class="kpi-lbl">Melhor Empresa</div><div class="kpi-val" id="kMel" style="font-size:16px;padding-top:8px">--</div><div class="kpi-sub" id="kMelSub"></div></div>
+      <div class="kpi"><div class="kpi-ico">&#9989;</div><div class="kpi-lbl">Conformidade Geral<button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Media da % de conformidade entre as empresas do filtro atual. Primeiro calculamos a conformidade media de cada empresa (soma dos pesos das perguntas Sim/Nao respondidas corretamente, dividida pelo peso total possivel); depois tiramos a media entre as empresas. Nao e a media simples de todas as auditorias juntas.">?</button></div><div class="kpi-val" id="kConf">--</div><div class="kpi-sub">media ponderada</div></div>
+      <div class="kpi"><div class="kpi-ico">&#128203;</div><div class="kpi-lbl">Auditorias<button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Quantidade de auditorias enviadas que atendem aos filtros selecionados acima (unidade, empresa, auditor e periodo).">?</button></div><div class="kpi-val" id="kAud">--</div><div class="kpi-sub">no periodo</div></div>
+      <div class="kpi"><div class="kpi-ico">&#9888;</div><div class="kpi-lbl">Nao Conformidades<button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Numero de auditorias marcadas como Nao Conforme dentro do filtro atual. Uma auditoria vira NC quando alguma pergunta da secao 'Desvios' e respondida fora do padrao esperado (por exemplo, indicando que um desvio foi encontrado).">?</button></div><div class="kpi-val" id="kNC">--</div><div class="kpi-sub">identificadas</div></div>
+      <div class="kpi"><div class="kpi-ico">&#127942;</div><div class="kpi-lbl">Melhor Empresa<button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Empresa com a maior % media de conformidade entre as que aparecem no filtro atual.">?</button></div><div class="kpi-val" id="kMel" style="font-size:16px;padding-top:8px">--</div><div class="kpi-sub" id="kMelSub"></div></div>
     </div>
     <div class="g2">
-      <div class="card"><div class="card-head"><span class="card-title">% Conformidade por Empresa</span><span class="ctag">Meta 90%</span></div><div class="chart-wrap" style="height:260px"><canvas id="cBar"></canvas></div></div>
-      <div class="card"><div class="card-head"><span class="card-title">Nao Conformidades</span></div><div class="chart-wrap" style="height:260px"><canvas id="cNC"></canvas></div></div>
+      <div class="card"><div class="card-head"><span class="card-title">% Conformidade por Empresa</span><button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Cada barra mostra a % media de conformidade da empresa nas auditorias filtradas (media das conformidades de cada auditoria dessa empresa). A linha de meta 90% e apenas uma referencia visual e nao afeta o calculo.">?</button><span class="ctag">Meta 90%</span></div><div class="chart-wrap" style="height:260px"><canvas id="cBar"></canvas></div></div>
+      <div class="card"><div class="card-head"><span class="card-title">Nao Conformidades</span><button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Distribuicao da quantidade de auditorias marcadas como Nao Conforme entre as empresas do filtro atual.">?</button></div><div class="chart-wrap" style="height:260px"><canvas id="cNC"></canvas></div></div>
     </div>
-    <div class="card"><div class="card-head"><span class="card-title">Evolucao Mensal</span></div><div class="chart-wrap" style="height:300px"><canvas id="cLin"></canvas></div></div>
+    <div class="card"><div class="card-head"><span class="card-title">Evolucao Mensal</span><button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Media mensal da % de conformidade de cada empresa, agrupada pelo mes da data da auditoria (nao pela data de envio). Um mes sem auditoria de uma empresa aparece como uma quebra na linha dessa empresa.">?</button></div><div class="chart-wrap" style="height:300px"><canvas id="cLin"></canvas></div></div>
     <div class="geq">
-      <div class="card"><div class="card-head"><span class="card-title">Ranking de Empresas</span></div><div class="rank-list" id="rankList"></div></div>
-      <div class="card"><div class="card-head"><span class="card-title">Nota Media por Empresa</span></div><div class="chart-wrap" style="height:280px"><canvas id="cNota"></canvas></div></div>
+      <div class="card"><div class="card-head"><span class="card-title">Ranking de Empresas</span><button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Empresas ordenadas da maior para a menor % media de conformidade, dentro do filtro atual. O selo ao lado do nome mostra quantas Nao Conformidades essa empresa teve no periodo filtrado.">?</button></div><div class="rank-list" id="rankList"></div></div>
+      <div class="card"><div class="card-head"><span class="card-title">Nota Media por Empresa</span><button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Media das respostas da pergunta do tipo 'Nota (0 a 10)' (configurada na secao Qualidade da APR), calculada por empresa dentro do filtro atual.">?</button></div><div class="chart-wrap" style="height:280px"><canvas id="cNota"></canvas></div></div>
     </div>
   </div>
 
@@ -492,6 +496,7 @@ code{font-family:monospace;font-size:12px;background:var(--g50);color:var(--g700
 </div>
 
 <div class="toast" id="toast"></div>
+<div class="info-pop" id="infoPop"></div>
 <script>
 // === GLOBALS ===
 let db,auth,CU=null,unsubAuditores=null;
@@ -1265,6 +1270,7 @@ function openPrint(id){
 
 // === NAV ===
 async function goP(btn){
+  hideInfo();
   const id=btn.getAttribute('data-page');
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
@@ -1281,6 +1287,36 @@ async function goP(btn){
 function showS(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
+
+// === INFO POPOVER (botao "?" nos cards/graficos) ===
+let infoOpenBtn=null;
+function toggleInfo(btn){
+  const pop=document.getElementById('infoPop');
+  if(infoOpenBtn===btn){hideInfo();return;}
+  pop.textContent=btn.getAttribute('data-info')||'';
+  pop.style.display='block';
+  infoOpenBtn=btn;
+  const r=btn.getBoundingClientRect();
+  const popW=Math.min(280,window.innerWidth-24);
+  pop.style.maxWidth=popW+'px';
+  let left=r.left;
+  if(left+popW+12>window.innerWidth)left=window.innerWidth-popW-12;
+  if(left<12)left=12;
+  let top=r.bottom+8;
+  const popH=pop.offsetHeight||90;
+  if(top+popH+12>window.innerHeight)top=Math.max(12,r.top-popH-8);
+  pop.style.left=left+'px';
+  pop.style.top=top+'px';
+}
+function hideInfo(){
+  document.getElementById('infoPop').style.display='none';
+  infoOpenBtn=null;
+}
+document.addEventListener('click',function(e){
+  if(infoOpenBtn&&!e.target.closest('.info-pop')&&!e.target.closest('.info-btn'))hideInfo();
+});
+window.addEventListener('resize',hideInfo);
+window.addEventListener('scroll',hideInfo,true);
 
 let toastT;
 function toast(msg,type=''){
