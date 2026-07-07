@@ -105,6 +105,8 @@ body{font-family:var(--f);background:var(--bg);color:var(--s900);min-height:100v
 .kpi-sub{font-size:12px;color:var(--s500)}
 .g2{display:grid;grid-template-columns:3fr 2fr;gap:18px;margin-bottom:18px}
 .geq{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
+.chart-wrap{position:relative;width:100%}
+.chart-wrap canvas{width:100%!important;height:100%!important}
 .tbl-wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:13px}
 thead tr{background:var(--g50)}
@@ -320,13 +322,13 @@ code{font-family:monospace;font-size:12px;background:var(--g50);color:var(--g700
       <div class="kpi"><div class="kpi-ico">&#127942;</div><div class="kpi-lbl">Melhor Empresa</div><div class="kpi-val" id="kMel" style="font-size:16px;padding-top:8px">--</div><div class="kpi-sub" id="kMelSub"></div></div>
     </div>
     <div class="g2">
-      <div class="card"><div class="card-head"><span class="card-title">% Conformidade por Empresa</span><span class="ctag">Meta 90%</span></div><canvas id="cBar" height="220"></canvas></div>
-      <div class="card"><div class="card-head"><span class="card-title">Nao Conformidades</span></div><canvas id="cNC" height="220"></canvas></div>
+      <div class="card"><div class="card-head"><span class="card-title">% Conformidade por Empresa</span><span class="ctag">Meta 90%</span></div><div class="chart-wrap" style="height:260px"><canvas id="cBar"></canvas></div></div>
+      <div class="card"><div class="card-head"><span class="card-title">Nao Conformidades</span></div><div class="chart-wrap" style="height:260px"><canvas id="cNC"></canvas></div></div>
     </div>
-    <div class="card"><div class="card-head"><span class="card-title">Evolucao Mensal</span></div><canvas id="cLin" height="260"></canvas></div>
+    <div class="card"><div class="card-head"><span class="card-title">Evolucao Mensal</span></div><div class="chart-wrap" style="height:300px"><canvas id="cLin"></canvas></div></div>
     <div class="geq">
       <div class="card"><div class="card-head"><span class="card-title">Ranking de Empresas</span></div><div class="rank-list" id="rankList"></div></div>
-      <div class="card"><div class="card-head"><span class="card-title">Nota Media por Empresa</span></div><canvas id="cNota" height="240"></canvas></div>
+      <div class="card"><div class="card-head"><span class="card-title">Nota Media por Empresa</span></div><div class="chart-wrap" style="height:280px"><canvas id="cNota"></canvas></div></div>
     </div>
   </div>
 
@@ -525,6 +527,8 @@ window.onload=()=>{
     if(pe)openModalPerg(pe.getAttribute('data-id'));
     const pd=e.target.closest('.perg-del');
     if(pd)delPergunta(pd.getAttribute('data-id'));
+    const rd=e.target.closest('.reg-del');
+    if(rd)delAuditoria(rd.getAttribute('data-id'));
   });
   initFB(FIREBASE_CONFIG);
 };
@@ -1106,12 +1110,12 @@ function renderDash(){
   kc('b');
   if(emps.length)CHARTS['b']=new Chart(document.getElementById('cBar'),{
     type:'bar',data:{labels:emps,datasets:[{data:emps.map(e=>cm[e]),backgroundColor:emps.map(e=>corConf(cm[e])+'CC'),borderColor:emps.map(e=>corConf(cm[e])),borderWidth:2,borderRadius:8}]},
-    options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.raw+'%'}}},scales:{y:{min:0,max:100,grid:{color:'#F1F5F9'},ticks:{callback:v=>v+'%',font:{family:'Outfit',size:12}}},x:{grid:{display:false},ticks:{font:{family:'Outfit',size:12}}}},animation:{duration:600}}
+    options:{maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.raw+'%'}}},scales:{y:{min:0,max:100,grid:{color:'#F1F5F9'},ticks:{callback:v=>v+'%',font:{family:'Outfit',size:12}}},x:{grid:{display:false},ticks:{font:{family:'Outfit',size:12}}}},animation:{duration:600}}
   });
   kc('nc');
   if(emps.length)CHARTS['nc']=new Chart(document.getElementById('cNC'),{
     type:'doughnut',data:{labels:emps,datasets:[{data:emps.map(e=>pm[e].nc||0),backgroundColor:CORES.slice(0,emps.length),borderWidth:3,borderColor:'#fff'}]},
-    options:{plugins:{legend:{position:'bottom',labels:{font:{family:'Outfit',size:11},padding:10}},tooltip:{callbacks:{label:c=>c.label+': '+c.raw+' NC'}}},animation:{duration:600}}
+    options:{maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{family:'Outfit',size:11},padding:10}},tooltip:{callbacks:{label:c=>c.label+': '+c.raw+' NC'}}},animation:{duration:600}}
   });
   kc('l');
   const meses={};
@@ -1131,7 +1135,7 @@ function renderDash(){
       pointBackgroundColor:CORES[i%CORES.length],borderWidth:2.5,pointRadius:4,tension:0.3,spanGaps:true,
       data:keys.map(k=>{const cs=meses[k].d[e];return cs&&cs.length?Math.round(cs.reduce((a,b)=>a+b,0)/cs.length):null;})
     }))},
-    options:{plugins:{legend:{position:'bottom',labels:{font:{family:'Outfit',size:11},padding:12}},tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.raw+'%'}}},
+    options:{maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{family:'Outfit',size:11},padding:12}},tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.raw+'%'}}},
       scales:{y:{min:0,max:100,grid:{color:'#F1F5F9'},ticks:{callback:v=>v+'%',font:{family:'Outfit',size:12}}},x:{grid:{display:false},ticks:{font:{family:'Outfit',size:12}}}},animation:{duration:600}}
   });
   const sorted=[...emps].sort((a,b)=>cm[b]-cm[a]);
@@ -1146,7 +1150,7 @@ function renderDash(){
   if(emps.length)CHARTS['nota']=new Chart(document.getElementById('cNota'),{
     type:'bar',data:{labels:emps,datasets:[{data:emps.map(e=>{const ns=pm[e].notas;return ns.length?+(ns.reduce((a,b)=>a+b,0)/ns.length).toFixed(1):0;}),
       backgroundColor:CORES.slice(0,emps.length).map(c=>c+'BB'),borderColor:CORES.slice(0,emps.length),borderWidth:2,borderRadius:8}]},
-    options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'Nota: '+c.raw+'/10'}}},
+    options:{maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'Nota: '+c.raw+'/10'}}},
       scales:{y:{min:0,max:10,grid:{color:'#F1F5F9'},ticks:{font:{family:'Outfit',size:12}}},x:{grid:{display:false},ticks:{font:{family:'Outfit',size:12}}}},animation:{duration:600}}
   });
 }
@@ -1170,8 +1174,19 @@ function renderReg(){
       +'<td><span style="font-weight:800;color:'+nc+'">'+(n!=null?n+'/10':'--')+'</span></td>'
       +'<td><span style="font-weight:700;color:'+corC+'">'+(conf!=null?conf+'%':'--')+'</span></td>'
       +'<td><span class="badge '+(isNC?'b-nc':'b-ok')+'">'+(isNC?'NC':'OK')+'</span></td>'
-      +'<td><button class="btn-icon print-btn" data-id="'+a.id+'" title="Imprimir">&#128438;</button></td></tr>';
+      +'<td><button class="btn-icon print-btn" data-id="'+a.id+'" title="Imprimir">&#128438;</button>'
+      +(CU&&CU.perfil==='admin'?'<button class="btn-icon del reg-del" data-id="'+a.id+'" title="Excluir registro">&#128465;</button>':'')
+      +'</td></tr>';
   }).join(''):'<tr><td colspan="10"><div class="empty"><div class="empty-ico">-</div><div class="empty-txt">Nenhum registro</div></div></td></tr>';
+}
+
+async function delAuditoria(id){
+  if(!confirm('Excluir permanentemente este registro de auditoria? Esta acao nao pode ser desfeita.'))return;
+  try{
+    await db.collection('auditorias').doc(id).delete();
+    toast('Registro excluido','ok');
+    await loadAuditorias();
+  }catch(e){toast('Erro ao excluir: '+e.message,'err');}
 }
 
 // === IMPRESSAO ===
