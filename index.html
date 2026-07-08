@@ -57,6 +57,7 @@ body{font-family:var(--f);background:var(--bg);color:var(--s900);min-height:100v
 .btn-p{background:var(--g700);color:var(--wh)}.btn-p:hover{background:var(--g500)}
 .btn-s{background:var(--s100);color:var(--s700);margin-top:8px}.btn-s:hover{background:var(--s200)}
 .btn-sm{width:auto;padding:7px 14px;font-size:13px}
+.btn:disabled{opacity:.45;cursor:not-allowed;pointer-events:none}
 .btn-icon{background:none;border:none;cursor:pointer;font-size:16px;padding:4px 6px;border-radius:6px;transition:background .15s}
 .btn-icon:hover{background:var(--s100)}
 .btn-icon.del:hover{background:var(--redl)}
@@ -268,7 +269,7 @@ code{font-family:monospace;font-size:12px;background:var(--g50);color:var(--g700
       <div class="ff"><label>Local / Frente de Servico *</label><input type="text" id="fLocal" placeholder="Ex: Linha 3 - Manutencao"/></div>
       <div id="form-perguntas"></div>
       <div class="ff" style="margin-top:16px"><label>Comentarios Finais</label><textarea id="fComent" placeholder="Observacoes gerais..."></textarea></div>
-      <button class="btn btn-p" onclick="enviarAuditoria()" id="btnEnviar">Enviar Auditoria</button>
+      <button class="btn btn-p" onclick="enviarAuditoria()" id="btnEnviar" disabled>Enviar Auditoria</button>
     </div>
   </div>
 </div>
@@ -322,12 +323,12 @@ code{font-family:monospace;font-size:12px;background:var(--g50);color:var(--g700
     <div class="kpi-grid">
       <div class="kpi"><div class="kpi-ico">&#9989;</div><div class="kpi-lbl">Conformidade Geral<button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Média da % de conformidade entre as empresas do filtro atual. Primeiro calculamos a conformidade média de cada empresa (soma dos pesos das perguntas Sim/Não respondidas corretamente, dividida pelo peso total possível); depois tiramos a média entre as empresas. Não é a média simples de todas as auditorias juntas.">?</button></div><div class="kpi-val" id="kConf">--</div><div class="kpi-sub">media ponderada</div></div>
       <div class="kpi"><div class="kpi-ico">&#128203;</div><div class="kpi-lbl">Auditorias<button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Quantidade de auditorias enviadas que atendem aos filtros selecionados acima (unidade, empresa, auditor e período).">?</button></div><div class="kpi-val" id="kAud">--</div><div class="kpi-sub">no periodo</div></div>
-      <div class="kpi"><div class="kpi-ico">&#9888;</div><div class="kpi-lbl">Nao Conformidades<button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Número de auditorias marcadas como Não Conforme dentro do filtro atual. Uma auditoria vira NC quando qualquer pergunta do tipo Sim/Não é respondida fora do padrão de conformidade esperado, em qualquer seção — não apenas na seção Desvios.">?</button></div><div class="kpi-val" id="kNC">--</div><div class="kpi-sub">identificadas</div></div>
+      <div class="kpi"><div class="kpi-ico">&#9888;</div><div class="kpi-lbl">Auditorias com NC<button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Número de auditorias (nao de perguntas) marcadas como Não Conforme dentro do filtro atual. Uma auditoria inteira vira NC quando pelo menos uma de suas perguntas Sim/Não é respondida fora do padrão de conformidade esperado, em qualquer seção — não apenas na seção Desvios.">?</button></div><div class="kpi-val" id="kNC">--</div><div class="kpi-sub">no filtro atual</div></div>
       <div class="kpi"><div class="kpi-ico">&#127942;</div><div class="kpi-lbl">Melhor Empresa<button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Empresa com a maior % média de conformidade entre as que aparecem no filtro atual.">?</button></div><div class="kpi-val" id="kMel" style="font-size:16px;padding-top:8px">--</div><div class="kpi-sub" id="kMelSub"></div></div>
     </div>
     <div class="g2">
       <div class="card"><div class="card-head"><span class="card-title">% Conformidade por Empresa</span><button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Cada barra mostra a % média de conformidade da empresa nas auditorias filtradas (média das conformidades de cada auditoria dessa empresa). A linha de meta 90% é apenas uma referência visual e não afeta o cálculo.">?</button><span class="ctag">Meta 90%</span></div><div class="chart-wrap" style="height:260px"><canvas id="cBar"></canvas></div></div>
-      <div class="card"><div class="card-head"><span class="card-title">Nao Conformidades</span><button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Distribuição da quantidade de auditorias marcadas como Não Conforme (qualquer pergunta fora do padrão de conformidade, em qualquer seção) entre as empresas do filtro atual.">?</button></div><div class="chart-wrap" style="height:260px"><canvas id="cNC"></canvas></div></div>
+      <div class="card"><div class="card-head"><span class="card-title">Auditorias com NC por Empresa</span><button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Distribuição da quantidade de auditorias (não de perguntas) marcadas como Não Conforme entre as empresas do filtro atual — cada auditoria conta 1, mesmo que tenha falhado em mais de uma pergunta.">?</button></div><div class="chart-wrap" style="height:260px"><canvas id="cNC"></canvas></div></div>
     </div>
     <div class="card"><div class="card-head"><span class="card-title">Evolucao Mensal</span><button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Média mensal da % de conformidade de cada empresa, agrupada pelo mês da data da auditoria (não pela data de envio). Um mês sem auditoria de uma empresa aparece como uma quebra na linha dessa empresa.">?</button></div><div class="chart-wrap" style="height:300px"><canvas id="cLin"></canvas></div></div>
     <div class="geq">
@@ -367,7 +368,7 @@ code{font-family:monospace;font-size:12px;background:var(--g50);color:var(--g700
   <!-- PERGUNTAS -->
   <div class="page" id="page-perguntas">
     <div class="card" style="max-width:820px">
-      <div class="card-head"><span class="card-title">Gerenciar Perguntas</span><button class="btn btn-s btn-sm" onclick="corrigirAcentuacaoPadrao()">Corrigir acentuacao padrao</button><button class="btn btn-p btn-sm" onclick="openModalPerg(null)">+ Nova</button></div>
+      <div class="card-head"><span class="card-title">Gerenciar Perguntas</span><button class="btn btn-p btn-sm" onclick="openModalPerg(null)">+ Nova</button></div>
       <div class="tabs">
         <button class="tab active" onclick="filtSec('',this)">Todas</button>
         <button class="tab" onclick="filtSec('Identificacao da APR',this)">Identificacao</button>
@@ -517,6 +518,27 @@ const PAGE_TITLES={dashboard:'Dashboard',registros:'Registros',perguntas:'Pergun
 // do tipo de dado gravado no Firestore.
 function ehInversa(p){return p&&(p.inversa===true||p.inversa==='true');}
 
+// Trava o envio da auditoria ate que todos os campos obrigatorios (*) e todas
+// as perguntas estejam preenchidos. Comentarios Finais continuam opcionais.
+function formularioValido(){
+  const auditor=document.getElementById('fAuditor')?.value;
+  const unidadeId=document.getElementById('fUnid')?.value;
+  const parceiro=document.getElementById('fParc')?.value;
+  const data=document.getElementById('fData')?.value;
+  const apr=document.getElementById('fAPR')?.value.trim();
+  const local=document.getElementById('fLocal')?.value.trim();
+  if(!auditor||!unidadeId||!parceiro||!data||!apr||!local)return false;
+  if(!PERGUNTAS.length)return false;
+  for(const p of PERGUNTAS){if(RESPOSTAS[p.id]===undefined)return false;}
+  return true;
+}
+
+function atualizarEstadoEnvio(){
+  const btn=document.getElementById('btnEnviar');
+  if(!btn)return;
+  btn.disabled=!formularioValido();
+}
+
 // === FIREBASE (config fixa — todo usuario usa o mesmo projeto,
 // sem precisar configurar nada no primeiro acesso) ===
 // IMPORTANTE: como a leitura de "auditores", "unidades" e "unidades/{id}/parceiros"
@@ -546,6 +568,8 @@ window.onload=()=>{
     const rd=e.target.closest('.reg-del');
     if(rd)delAuditoria(rd.getAttribute('data-id'));
   });
+  document.getElementById('s-form').addEventListener('input',atualizarEstadoEnvio);
+  document.getElementById('s-form').addEventListener('change',atualizarEstadoEnvio);
   initFB(FIREBASE_CONFIG);
 };
 
@@ -896,38 +920,9 @@ async function seedPerguntas(){
   ordenarPerguntas();
 }
 
-// Mapa do texto antigo (sem acentuacao) das perguntas padrao para o texto
-// corrigido. Usado para corrigir perguntas ja existentes no Firestore sem
-// mexer em peso, secao, tipo ou perguntas personalizadas pelo usuario.
-const CORRECOES_TEXTO_PADRAO={
-  'APR possui identificacao da atividade?':'A APR possui identificação da atividade?',
-  'Data esta preenchida na APR?':'A data está preenchida na APR?',
-  'Equipe esta listada?':'A equipe está listada?',
-  'Riscos foram identificados?':'Os riscos foram identificados?',
-  'Os riscos sao compativeis com a atividade?':'Os riscos são compatíveis com a atividade?',
-  'Os controles sao especificos (nao genericos)?':'Os controles são específicos (não genéricos)?',
-  'APR esta clara e legivel?':'A APR está clara e legível?',
-  'Foi copiada de outra APR sem adaptacao?':'Foi copiada de outra APR sem adaptação?',
-  'Registro / evidencia fotografica presente?':'Registro / evidência fotográfica presente?',
-  'Existe nao conformidade identificada?':'Existe não conformidade identificada?',
-};
-
-async function corrigirAcentuacaoPadrao(){
-  const alvos=PERGUNTAS.filter(p=>CORRECOES_TEXTO_PADRAO[p.texto]);
-  if(!alvos.length){toast('Nenhuma pergunta padrao com texto desatualizado foi encontrada','err');return;}
-  if(!confirm('Corrigir a acentuacao de '+alvos.length+' pergunta(s) padrao? Peso, secao e demais configuracoes nao serao alterados.'))return;
-  try{
-    const batch=db.batch();
-    alvos.forEach(p=>batch.update(db.collection('perguntas').doc(p.id),{texto:CORRECOES_TEXTO_PADRAO[p.texto]}));
-    await batch.commit();
-    toast(alvos.length+' pergunta(s) corrigida(s)!','ok');
-    await loadPerguntas();renderPerguntasConfig();
-  }catch(e){toast('Erro ao corrigir: '+e.message,'err');}
-}
-
 function renderFormPerguntas(){
   const c=document.getElementById('form-perguntas');
-  if(!PERGUNTAS.length){c.innerHTML='<div class="empty"><div class="empty-ico">?</div><div class="empty-txt">Nenhuma pergunta configurada.</div></div>';return;}
+  if(!PERGUNTAS.length){c.innerHTML='<div class="empty"><div class="empty-ico">?</div><div class="empty-txt">Nenhuma pergunta configurada.</div></div>';atualizarEstadoEnvio();return;}
   // Agrupa pelas secoes que realmente existem nos dados, em vez de exigir
   // que o texto bata perfeitamente com a lista fixa SECOES. Isso evita que
   // uma pergunta "suma" do formulario por causa de acento/maiuscula/espaco
@@ -977,17 +972,23 @@ function renderFormPerguntas(){
     });
   });
   c.innerHTML='';c.appendChild(frag);
+  atualizarEstadoEnvio();
 }
 
 function selOpt(qid,val){
   RESPOSTAS[qid]=val;
-  document.getElementById('ro-sim-'+qid).className='ro'+(val==='Sim'?' sim':'');
-  document.getElementById('ro-nao-'+qid).className='ro'+(val==='Nao'?' nao':'');
+  const p=PERGUNTAS.find(x=>x.id===qid);
+  const ok=p&&ehInversa(p)?val==='Nao':val==='Sim';
+  const cls=ok?'sim':'nao';
+  document.getElementById('ro-sim-'+qid).className='ro'+(val==='Sim'?' '+cls:'');
+  document.getElementById('ro-nao-'+qid).className='ro'+(val==='Nao'?' '+cls:'');
+  atualizarEstadoEnvio();
 }
 function selNota(qid,n){
   RESPOSTAS[qid]=n;
   document.querySelectorAll('[id^="nb-'+qid+'-"]').forEach(b=>b.classList.remove('sel'));
   const btn=document.getElementById('nb-'+qid+'-'+n);if(btn)btn.classList.add('sel');
+  atualizarEstadoEnvio();
 }
 
 function filtSec(sec,btn){
@@ -1100,6 +1101,7 @@ function resetForm(){
   document.querySelectorAll('.ro').forEach(el=>el.className='ro');
   document.querySelectorAll('.nb2').forEach(b=>b.classList.remove('sel'));
   window.scrollTo({top:0,behavior:'smooth'});
+  atualizarEstadoEnvio();
 }
 
 // === AUDITORIAS ===
