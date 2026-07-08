@@ -1,1497 +1,922 @@
-/* ═══════════════════════════════════════════════════════════════
-   AUDITORIA APR — app.js
-   Organizado por responsabilidade:
-   1. CONFIG / ESTADO GLOBAL
-   2. FIREBASE (init)
-   3. AUTENTICAÇÃO
-   4. PERMISSÕES / NÍVEIS DE ACESSO
-   5. PERGUNTAS (Firestore + render do formulário)
-   6. UNIDADES & PARCEIROS
-   7. ENVIO DE AUDITORIA (+ validação + modo offline)
-   8. DASHBOARD
-   9. REGISTROS (+ exportação CSV)
-   10. CONFIGURAÇÕES (Unidades / Parceiros / Usuários)
-   11. NAVEGAÇÃO
-   12. UI HELPERS (toast, loading, showScreen)
-   13. PWA (service worker + sincronização offline)
-   ═══════════════════════════════════════════════════════════════ */
+// === GLOBALS ===
+let db,auth,CU=null,unsubAuditores=null;
+let UNIDADES=[],AUDITORIAS=[],PERGUNTAS=[],AUDITORES=[];
+let RESPOSTAS={},CHARTS={},filtSecao='';
+const CORES=['#1B6B2E','#16A34A','#D97706','#1D4ED8','#DC2626','#7C3AED','#0891B2','#DB2777'];
+const SECOES=['Identificacao da APR','Identificacao de Riscos','Medidas de Controle','Qualidade da APR','Evidencias','Desvios'];
+const PAGE_TITLES={dashboard:'Dashboard',registros:'Registros',perguntas:'Perguntas',usuarios:'Usuarios',configuracoes:'Configuracoes'};
 
-// ═══════════════════════════════════════════════════════
-// 1. CONFIG / ESTADO GLOBAL
-// ═══════════════════════════════════════════════════════
-const SECAO_NOMES_DEFAULT = {
-  'q-bloco-id':         '2. Identificação da APR',
-  'q-bloco-riscos':     '3. Identificação de Riscos',
-  'q-bloco-controles':  '4. Medidas de Controle',
-  'q-bloco-qualidade':  '5. Qualidade da APR',
-  'q-bloco-evidencias': '6. Evidências',
-  'q-bloco-desvios':    '7. Desvios e Não Conformidades',
+// Le o campo "inversa" de forma robusta: aceita true (boolean) ou 'true' (string),
+// qualquer outra coisa (false, undefined, null, '', 'false') conta como nao-inversa.
+// Isso evita que uma pergunta marcada como inversa deixe de funcionar por causa
+// do tipo de dado gravado no Firestore.
+function ehInversa(p){return p&&(p.inversa===true||p.inversa==='true');}
+
+// Trava o envio da auditoria ate que todos os campos obrigatorios (*) e todas
+// as perguntas estejam preenchidos. Comentarios Finais continuam opcionais.
+function formularioValido(){
+  const auditor=document.getElementById('fAuditor')?.value;
+  const unidadeId=document.getElementById('fUnid')?.value;
+  const parceiro=document.getElementById('fParc')?.value;
+  const data=document.getElementById('fData')?.value;
+  const apr=document.getElementById('fAPR')?.value.trim();
+  const local=document.getElementById('fLocal')?.value.trim();
+  if(!auditor||!unidadeId||!parceiro||!data||!apr||!local)return false;
+  if(!PERGUNTAS.length)return false;
+  for(const p of PERGUNTAS){if(RESPOSTAS[p.id]===undefined)return false;}
+  return true;
+}
+
+function atualizarEstadoEnvio(){
+  const btn=document.getElementById('btnEnviar');
+  if(!btn)return;
+  btn.disabled=!formularioValido();
+}
+
+// === FIREBASE (config fixa — todo usuario usa o mesmo projeto,
+// sem precisar configurar nada no primeiro acesso) ===
+// IMPORTANTE: como a leitura de "auditores", "unidades" e "unidades/{id}/parceiros"
+// precisa funcionar no formulario PUBLICO (sem login), as regras de seguranca do
+// Firestore devem permitir "read" publico nessas colecoes e exigir autenticacao
+// apenas para "write" (e para toda operacao em "auditorias" e "usuarios").
+const FIREBASE_CONFIG={
+  apiKey:"AIzaSyC5Kz7Hns8sHhUNKZUODAsPc_JjXI1eyBE",
+  authDomain:"auditoria-apr-1.firebaseapp.com",
+  projectId:"auditoria-apr-1",
+  storageBucket:"auditoria-apr-1.firebasestorage.app",
+  messagingSenderId:"70897842287",
+  appId:"1:70897842287:web:d47ef7b13d9fa91e8ab59a"
 };
 
-// Define a ordem de exibição das seções no formulário e na página de Perguntas.
-const ORDEM_SECOES_DEFAULT = [
-  'q-bloco-id', 'q-bloco-riscos', 'q-bloco-controles',
-  'q-bloco-qualidade', 'q-bloco-evidencias', 'q-bloco-desvios',
-];
-
-const PERGUNTAS_DEFAULT = {
-  'q-bloco-id': [
-    { id:'q1', texto:'APR possui identificação da atividade?',    peso:1, tipo:'sn', invertida:false, ordem:0 },
-    { id:'q2', texto:'Data está preenchida na APR?',              peso:1, tipo:'sn', invertida:false, ordem:1 },
-    { id:'q3', texto:'Equipe está listada?',                      peso:1, tipo:'sn', invertida:false, ordem:2 },
-  ],
-  'q-bloco-riscos': [
-    { id:'q4', texto:'Riscos foram identificados?',               peso:3, tipo:'sn', invertida:false, ordem:0 },
-    { id:'q5', texto:'Os riscos são compatíveis com a atividade?',peso:1, tipo:'sn', invertida:false, ordem:1 },
-  ],
-  'q-bloco-controles': [
-    { id:'q6', texto:'Existem controles para os riscos?',         peso:3, tipo:'sn', invertida:false, ordem:0 },
-    { id:'q7', texto:'Os controles são específicos (não genéricos)?', peso:1, tipo:'sn', invertida:false, ordem:1 },
-  ],
-  'q-bloco-qualidade': [
-    { id:'q8',  texto:'APR está clara e legível?',                peso:1, tipo:'sn', invertida:false, ordem:0 },
-    { id:'q9',  texto:'Foi copiada de outra APR sem adaptação?',  peso:1, tipo:'sn', invertida:true, ordem:1 },
-    { id:'q10', texto:'Nota geral da APR (0 a 10)', peso:1, tipo:'nota', invertida:false, ordem:2 },
-  ],
-  'q-bloco-evidencias': [
-    { id:'q11', texto:'Registro / evidência fotográfica presente?', peso:1, tipo:'sn', invertida:false, ordem:0 },
-  ],
-  'q-bloco-desvios': [
-    { id:'q12', texto:'Existe não conformidade identificada?', peso:1, tipo:'sn', invertida:true, ordem:0 },
-  ],
+// === INIT ===
+window.onload=()=>{
+  document.getElementById('fData').value=new Date().toISOString().split('T')[0];
+  // Event delegation for dynamically generated buttons
+  document.addEventListener('click',function(e){
+    const pb=e.target.closest('.print-btn');
+    if(pb)openPrint(pb.getAttribute('data-id'));
+    const pe=e.target.closest('.perg-edit');
+    if(pe)openModalPerg(pe.getAttribute('data-id'));
+    const pd=e.target.closest('.perg-del');
+    if(pd)delPergunta(pd.getAttribute('data-id'));
+    const rd=e.target.closest('.reg-del');
+    if(rd)delAuditoria(rd.getAttribute('data-id'));
+  });
+  document.getElementById('s-form').addEventListener('input',atualizarEstadoEnvio);
+  document.getElementById('s-form').addEventListener('change',atualizarEstadoEnvio);
+  initFB(FIREBASE_CONFIG);
 };
 
-let SECAO_NOMES   = JSON.parse(JSON.stringify(SECAO_NOMES_DEFAULT));
-let PERGUNTAS     = JSON.parse(JSON.stringify(PERGUNTAS_DEFAULT));
-let ORDEM_SECOES  = JSON.parse(JSON.stringify(ORDEM_SECOES_DEFAULT));
+function initFB(cfg){
+  try{
+    if(!firebase.apps.length)firebase.initializeApp(cfg);
+    db=firebase.firestore();
+    auth=firebase.auth();
+    // Carrega auditores, unidades e perguntas imediatamente, sem depender
+    // de login, para que o formulario publico funcione para qualquer visitante.
+    subscribeAuditores();
+    loadUnidadesForm();
+    loadPerguntas();
+    auth.onAuthStateChanged(async u=>{if(u)await onLogin(u);});
+    irForm();
+  }catch(e){
+    toast('Erro ao conectar ao Firebase: '+e.message,'err');
+    console.error(e);
+  }
+}
 
+function irForm(){
+  showS('s-form');
+  const btn=document.getElementById('btnPainel');
+  if(CU){btn.textContent='Ir ao Painel';btn.onclick=()=>showS('s-app');}
+  else{btn.textContent='Acessar Painel';btn.onclick=acessarPainel;}
+}
 
-const RESPOSTAS   = {};
-const COMENTARIOS = {};
-const CORES_EMPRESA = ['#1B6B2E','#16A34A','#D97706','#1D4ED8','#DC2626','#7C3AED','#0891B2','#DB2777'];
+function acessarPainel(){if(CU)showS('s-app');else showS('s-login');}
 
-let notaSelecionada = null;
-let unidades = [], parceiros = {};
-let AUDITORIAS = [];
-let CHARTS = {};
-let NIVEL_ATUAL = 'tecnico';
-let db, auth;
-
-const NIVEIS_PAGINAS = {
-  tecnico: ['formulario'],
-  gestor:  ['formulario','dashboard','registros','perguntas','usuarios'],
-  admin:   ['formulario','dashboard','registros','perguntas','usuarios','config'],
-};
-
-const NIVEL_LABEL = { tecnico:'Técnico', gestor:'Gestor', admin:'Admin' };
-
-const PAGE_TITLES = {
-  formulario:'Nova Auditoria', dashboard:'Dashboard', registros:'Registros',
-  perguntas:'Perguntas', usuarios:'Usuários', config:'Configurações'
-};
-
-const OFFLINE_QUEUE_KEY = 'aprOfflineQueue';
-
-// ═══════════════════════════════════════════════════════
-// 2. FIREBASE
-// ═══════════════════════════════════════════════════════
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyC5Kz7Hns8sHhUNKZUODAsPc_JjXI1eyBE",
-  authDomain: "auditoria-apr-1.firebaseapp.com",
-  projectId: "auditoria-apr-1",
-  storageBucket: "auditoria-apr-1.firebasestorage.app",
-  messagingSenderId: "70897842287",
-  appId: "1:70897842287:web:d47ef7b13d9fa91e8ab59a"
-};
-
-function initFirebase(cfg) {
-  try {
-    if (!firebase.apps.length) firebase.initializeApp(cfg);
-    db   = firebase.firestore();
-    auth = firebase.auth();
-    db.enablePersistence({ synchronizeTabs: true }).catch(() => { /* não suportado, ok */ });
-
-    auth.onAuthStateChanged(user => {
-      if (user) onLogin(user);
-      else showScreen('s-login');
+// === AUDITORES REALTIME ===
+function subscribeAuditores(){
+  if(!db)return;
+  if(unsubAuditores)unsubAuditores();
+  unsubAuditores=db.collection('auditores').orderBy('nome').onSnapshot(snap=>{
+    AUDITORES=snap.docs.map(d=>({id:d.id,...d.data()}));
+    updateAuditorSel();
+    renderAuditoresConfig();
+    ['dAudit','rAudit'].forEach(id=>{
+      const el=document.getElementById(id);if(!el)return;
+      const v=el.value;el.innerHTML='<option value="">Todos</option>';
+      AUDITORES.forEach(a=>{const o=document.createElement('option');o.value=a.nome;o.textContent=a.nome;el.appendChild(o);});
+      el.value=v;
     });
-  } catch(e) {
-    showToast(mensagemErroAmigavel(e), 'error');
-  }
+  },err=>{
+    console.error('Erro ao carregar auditores:',err);
+    toast('Nao foi possivel carregar os auditores. Verifique as regras do Firestore.','err');
+  });
 }
 
-window.onload = () => {
-  setDefaultDate();
-  initFirebase(FIREBASE_CONFIG);
-  registrarServiceWorker();
-  monitorarConexao();
-  aplicarPreferenciaSidebar();
-};
-
-function setDefaultDate() {
-  document.getElementById('fData').value = new Date().toISOString().split('T')[0];
+function updateAuditorSel(){
+  const sel=document.getElementById('fAuditor');if(!sel)return;
+  const v=sel.value;sel.innerHTML='<option value="">Selecione o auditor...</option>';
+  AUDITORES.forEach(a=>{const o=document.createElement('option');o.value=a.nome;o.textContent=a.nome;sel.appendChild(o);});
+  if(v)sel.value=v;
 }
 
-// ═══════════════════════════════════════════════════════
-// 3. AUTENTICAÇÃO
-// ═══════════════════════════════════════════════════════
-async function fazerLogin() {
-  const email = document.getElementById('loginEmail').value.trim();
-  const senha = document.getElementById('loginSenha').value;
-  const err = document.getElementById('loginErr');
-  err.style.display = 'none';
-
-  if (!email || !validarEmail(email)) {
-    err.textContent = 'Digite um e-mail válido.';
-    err.style.display = 'block';
+function renderAuditoresConfig(){
+  const el=document.getElementById('listaAuditores');if(!el)return;
+  el.innerHTML='';
+  if(!AUDITORES.length){
+    el.innerHTML='<div style="font-size:13px;color:var(--s500);padding:8px">Nenhum auditor cadastrado.</div>';
     return;
   }
-  if (!senha) {
-    err.textContent = 'Digite sua senha.';
-    err.style.display = 'block';
-    return;
-  }
-
-  setLoading('btnLogin', true, 'Entrando...');
-  try {
-    await auth.signInWithEmailAndPassword(email, senha);
-  } catch(e) {
-    err.textContent = mensagemErroAmigavel(e);
-    err.style.display = 'block';
-  } finally {
-    setLoading('btnLogin', false, 'Entrar');
-  }
+  AUDITORES.forEach(function(a){
+    const row=document.createElement('div');row.className='item-row';
+    const lbl=document.createElement('div');lbl.className='item-lbl';lbl.textContent=a.nome;
+    const btn=document.createElement('button');btn.className='btn-icon del';btn.innerHTML='&#128465;';
+    btn.title='Remover';
+    btn.addEventListener('click',function(){delAuditor(a.id);});
+    row.appendChild(lbl);row.appendChild(btn);el.appendChild(row);
+  });
 }
 
-async function fazerLogout() {
-  await auth.signOut();
+async function addAuditor(){
+  const nome=document.getElementById('nAuditor').value.trim();
+  if(!nome){toast('Digite o nome','err');return;}
+  if(AUDITORES.some(a=>a.nome.toLowerCase()===nome.toLowerCase())){toast('Ja cadastrado','err');return;}
+  try{
+    await db.collection('auditores').add({nome,criadoEm:new Date()});
+    document.getElementById('nAuditor').value='';
+    toast('Auditor adicionado! Ja aparece no formulario.','ok');
+  }catch(e){toast('Erro ao adicionar: '+e.message,'err');}
 }
 
-/** Permite que a própria pessoa solicite o e-mail de redefinição de senha,
- *  direto na tela de login, sem precisar do admin. */
-async function esqueciSenha() {
-  const email = document.getElementById('loginEmail').value.trim();
-  const err = document.getElementById('loginErr');
-  err.style.display = 'none';
-
-  if (!validarEmail(email)) {
-    err.textContent = 'Digite seu e-mail no campo acima antes de solicitar a redefinição.';
-    err.style.display = 'block';
-    return;
-  }
-
-  try {
-    await auth.sendPasswordResetEmail(email);
-    showToast(`Enviamos um link de redefinição para ${email}.`, 'success');
-  } catch(e) {
-    err.textContent = mensagemErroAmigavel(e);
-    err.style.display = 'block';
-  }
+async function delAuditor(id){
+  if(!confirm('Remover este auditor da lista?'))return;
+  try{
+    await db.collection('auditores').doc(id).delete();
+    toast('Removido','ok');
+  }catch(e){toast('Erro ao remover: '+e.message,'err');}
 }
 
-async function onLogin(user) {
-  showScreen('s-app');
-  const initial = (user.displayName || user.email || '?')[0].toUpperCase();
-  document.getElementById('userAvatar').textContent = initial;
-  document.getElementById('userName').textContent   = user.displayName || user.email;
-  const avatarMobile = document.getElementById('userAvatarMobile');
-  if (avatarMobile) avatarMobile.textContent = initial;
+// === AUTH ===
+async function fazerLogin(){
+  const email=document.getElementById('lEmail').value.trim();
+  const senha=document.getElementById('lSenha').value;
+  const errEl=document.getElementById('loginErr');
+  errEl.style.display='none';
+  try{await auth.signInWithEmailAndPassword(email,senha);}
+  catch(e){errEl.textContent='E-mail ou senha incorretos.';errEl.style.display='block';}
+}
 
-  let userDoc;
-  try {
-    userDoc = await db.collection('usuarios').doc(user.uid).get();
-  } catch(e) {
-    showToast('Não foi possível verificar permissões. Conectando offline com nível restrito.', 'error');
-  }
-  NIVEL_ATUAL = (userDoc && userDoc.exists) ? (userDoc.data().nivel || 'tecnico') : 'tecnico';
-  const usuarioInativo = userDoc && userDoc.exists && userDoc.data().ativo === false;
-
-  if (usuarioInativo) {
+async function onLogin(u){
+  const doc=await db.collection('usuarios').doc(u.uid).get();
+  CU=doc.exists?{uid:u.uid,...doc.data()}:{uid:u.uid,email:u.email,nome:u.displayName||u.email,perfil:'gestor',ativo:true};
+  if(CU.ativo===false){
+    toast('Sua conta foi desativada. Fale com um administrador.','err');
     await auth.signOut();
-    showScreen('s-login');
-    document.getElementById('loginErr').textContent = 'Este cadastro foi inativado. Fale com o administrador do sistema.';
-    document.getElementById('loginErr').style.display = 'block';
+    CU=null;
+    irForm();
     return;
   }
-
-  const precisaTrocarSenha = userDoc && userDoc.exists && userDoc.data().exigeTrocaSenha === true;
-
-  if (precisaTrocarSenha) {
-    mostrarTelaTrocaSenhaObrigatoria(user);
-    return; // bloqueia o restante do carregamento até a senha ser trocada
-  }
-
-  if (NIVEL_ATUAL !== 'admin') {
-    try {
-      const adminDoc = await db.collection('config').doc('admins').get();
-      const admins = adminDoc.exists ? (adminDoc.data().emails || []) : [];
-      if (admins.includes(user.email)) {
-        NIVEL_ATUAL = 'admin';
-        await db.collection('usuarios').doc(user.uid).set(
-          { email: user.email, nome: user.displayName || user.email, nivel: 'admin' },
-          { merge: true }
-        );
-      }
-    } catch(e) { /* fallback best-effort */ }
-  }
-
-  aplicarPermissoes(NIVEL_ATUAL);
-  irParaPaginaInicial();
-
-  await carregarPerguntas();
-  await carregarUnidadesForm();
-  await carregarAuditorias();
-  await sincronizarFilaOffline();
+  document.getElementById('uAv').textContent=(CU.nome||'?')[0].toUpperCase();
+  document.getElementById('uNm').textContent=CU.nome||CU.email;
+  const rb=document.getElementById('roleBadge');
+  rb.textContent=CU.perfil==='admin'?'Admin':'Gestor';
+  rb.className='badge '+(CU.perfil==='admin'?'b-admin':'b-gestor');
+  document.querySelectorAll('[data-role]').forEach(el=>{
+    const role=el.getAttribute('data-role');
+    const show=role==='gestor'?true:CU.perfil==='admin';
+    el.style.display=show?(el.tagName==='BUTTON'?'flex':'block'):'none';
+  });
+  showS('s-app');
+  document.getElementById('btnPainel').textContent='Ir ao Painel';
+  document.getElementById('btnPainel').onclick=()=>showS('s-app');
+  await loadPerguntas();
+  await loadUnidadesForm();
+  await loadAuditorias();
 }
 
-// ═══════════════════════════════════════════════════════
-// 3.1 TROCA OBRIGATÓRIA DE SENHA (primeiro acesso)
-// ═══════════════════════════════════════════════════════
-function mostrarTelaTrocaSenhaObrigatoria(user) {
-  showScreen('s-trocar-senha');
-  document.getElementById('trocaSenhaEmail').textContent = user.email;
-  document.getElementById('novaSenha1').value = '';
-  document.getElementById('novaSenha2').value = '';
-  document.getElementById('trocaSenhaErr').style.display = 'none';
+async function fazerLogout(){await auth.signOut();CU=null;irForm();}
+
+async function criarUsuario(){
+  const nome=document.getElementById('uNome').value.trim();
+  const email=document.getElementById('uEmail').value.trim();
+  const senha=document.getElementById('uSenha').value;
+  const perfil=document.getElementById('uPerfil').value;
+  if(!nome||!email||!senha){toast('Preencha todos os campos','err');return;}
+  try{
+    const cred=await auth.createUserWithEmailAndPassword(email,senha);
+    await cred.user.updateProfile({displayName:nome});
+    await db.collection('usuarios').doc(cred.user.uid).set({nome,email,perfil,ativo:true,criadoEm:new Date()});
+    document.getElementById('uNome').value='';
+    document.getElementById('uEmail').value='';
+    document.getElementById('uSenha').value='';
+    toast('Usuario criado!','ok');
+    await renderUsers();
+  }catch(e){toast('Erro: '+e.message,'err');}
 }
 
-async function confirmarTrocaSenhaObrigatoria() {
-  const senha1 = document.getElementById('novaSenha1').value;
-  const senha2 = document.getElementById('novaSenha2').value;
-  const err = document.getElementById('trocaSenhaErr');
-  err.style.display = 'none';
+async function renderUsers(){
+  const snap=await db.collection('usuarios').get();
+  const users=snap.docs.map(d=>({id:d.id,...d.data()}));
+  const el=document.getElementById('listaUsers');
+  el.innerHTML='';
+  if(!users.length){el.innerHTML='<div style="font-size:13px;color:var(--s500);padding:8px">Nenhum usuario.</div>';return;}
+  users.forEach(function(u){
+    const row=document.createElement('div');row.className='item-row';
+    const av=document.createElement('div');av.className='u-av';av.style.flexShrink='0';av.textContent=(u.nome||'?')[0].toUpperCase();
+    const info=document.createElement('div');info.style.flex='1';
+    const nm=document.createElement('div');nm.className='item-lbl';nm.textContent=u.nome||'--';
+    const em=document.createElement('div');em.className='item-sub';em.textContent=u.email;
+    info.appendChild(nm);info.appendChild(em);
+    const inativo=u.ativo===false;
+    if(inativo)row.style.opacity='0.5';
+    const badge=document.createElement('span');badge.className='badge '+(u.perfil==='admin'?'b-admin':'b-gestor');badge.textContent=u.perfil+(inativo?' (inativo)':'');
+    const btnAt=document.createElement('button');btnAt.className='btn-icon';btnAt.title=inativo?'Ativar':'Inativar';
+    btnAt.innerHTML=inativo?'&#128274;':'&#128275;';
+    btnAt.addEventListener('click',function(){toggleAtivoUser(u.id,u.ativo!==false);});
+    const btn=document.createElement('button');btn.className='btn-icon';btn.innerHTML='&#9999;';
+    btn.addEventListener('click',function(){openEditUser(u.id,u.nome||'',u.perfil);});
+    row.appendChild(av);row.appendChild(info);row.appendChild(badge);row.appendChild(btnAt);row.appendChild(btn);
+    el.appendChild(row);
+  });
+}
 
-  if (!senha1 || senha1.length < 6) {
-    err.textContent = 'A nova senha deve ter no mínimo 6 caracteres.';
-    err.style.display = 'block';
-    return;
+function openEditUser(id,nome,perfil){
+  document.getElementById('muId').value=id;
+  document.getElementById('muNome').value=nome;
+  document.getElementById('muPerfil').value=perfil;
+  openModal('modalUser');
+}
+
+async function toggleAtivoUser(id,ativoAtual){
+  if(id===CU?.uid){toast('Voce nao pode inativar sua propria conta','err');return;}
+  try{
+    await db.collection('usuarios').doc(id).update({ativo:!ativoAtual});
+    toast(ativoAtual?'Usuario inativado':'Usuario ativado','ok');
+    await renderUsers();
+  }catch(e){toast('Erro: '+e.message,'err');}
+}
+
+async function salvarUser(){
+  const id=document.getElementById('muId').value;
+  const nome=document.getElementById('muNome').value.trim();
+  const perfil=document.getElementById('muPerfil').value;
+  await db.collection('usuarios').doc(id).update({nome,perfil});
+  closeModal('modalUser');toast('Atualizado!','ok');
+  await renderUsers();
+}
+
+// === UNIDADES & PARCEIROS ===
+async function loadUnidadesForm(){
+  if(!db)return;
+  const snap=await db.collection('unidades').orderBy('nome').get();
+  UNIDADES=snap.docs.map(d=>({id:d.id,...d.data()}));
+  ['fUnid','dUnid','rUnid','cfgUnidSel'].forEach(id=>{
+    const el=document.getElementById(id);if(!el)return;
+    const first=el.options[0].cloneNode(true);el.innerHTML='';el.appendChild(first);
+    UNIDADES.forEach(u=>{const o=document.createElement('option');o.value=u.id;o.textContent=u.nome;el.appendChild(o);});
+  });
+}
+
+async function loadParceiros(){
+  const uid=document.getElementById('fUnid').value;
+  const sel=document.getElementById('fParc');
+  if(!uid){sel.innerHTML='<option value="">Selecione a unidade primeiro...</option>';return;}
+  sel.innerHTML='<option value="">Carregando...</option>';
+  const snap=await db.collection('unidades').doc(uid).collection('parceiros').orderBy('nome').get();
+  sel.innerHTML='<option value="">Selecione o parceiro...</option>';
+  snap.docs.forEach(d=>{const o=document.createElement('option');o.value=d.data().nome;o.textContent=d.data().nome;sel.appendChild(o);});
+}
+
+async function renderUnidadesCfg(){
+  await loadUnidadesForm();
+  const listaUnidEl=document.getElementById('listaUnid');listaUnidEl.innerHTML='';
+  if(!UNIDADES.length){listaUnidEl.innerHTML='<div style="font-size:13px;color:var(--s500)">Nenhuma unidade.</div>';}
+  else{UNIDADES.forEach(function(u){
+    const row=document.createElement('div');row.className='item-row';
+    const lbl=document.createElement('div');lbl.className='item-lbl';lbl.textContent=u.nome;
+    const btn=document.createElement('button');btn.className='btn-icon del';btn.innerHTML='&#128465;';
+    btn.addEventListener('click',function(){delUnidade(u.id);});
+    row.appendChild(lbl);row.appendChild(btn);listaUnidEl.appendChild(row);
+  });}
+  const sel=document.getElementById('cfgUnidSel');
+  sel.innerHTML='<option value="">Selecione...</option>';
+  UNIDADES.forEach(u=>{const o=document.createElement('option');o.value=u.id;o.textContent=u.nome;sel.appendChild(o);});
+}
+
+async function addUnidade(){
+  const nome=document.getElementById('nUnid').value.trim();
+  if(!nome){toast('Digite o nome','err');return;}
+  if(UNIDADES.some(u=>u.nome.toLowerCase()===nome.toLowerCase())){toast('Ja cadastrada','err');return;}
+  await db.collection('unidades').add({nome,criadoEm:new Date()});
+  document.getElementById('nUnid').value='';toast('Unidade adicionada!','ok');
+  await renderUnidadesCfg();
+}
+
+async function delUnidade(id){
+  if(!confirm('Excluir unidade e todos os parceiros?'))return;
+  const snap=await db.collection('unidades').doc(id).collection('parceiros').get();
+  const batch=db.batch();snap.docs.forEach(d=>batch.delete(d.ref));
+  batch.delete(db.collection('unidades').doc(id));await batch.commit();
+  toast('Excluida','ok');await renderUnidadesCfg();
+}
+
+async function renderParcCfg(){
+  const uid=document.getElementById('cfgUnidSel').value;
+  const lista=document.getElementById('listaParcCfg');
+  const row=document.getElementById('addParcRow');
+  if(!uid){lista.innerHTML='';row.style.display='none';return;}
+  const snap=await db.collection('unidades').doc(uid).collection('parceiros').orderBy('nome').get();
+  lista.innerHTML='';
+  if(!snap.docs.length){lista.innerHTML='<div style="font-size:13px;color:var(--s500)">Nenhum parceiro.</div>';}
+  else{snap.docs.forEach(function(d){
+    const pnome=d.data().nome,pid=d.id,puid=uid;
+    const prow=document.createElement('div');prow.className='item-row';
+    const plbl=document.createElement('div');plbl.className='item-lbl';plbl.textContent=pnome;
+    const pbtn=document.createElement('button');pbtn.className='btn-icon del';pbtn.innerHTML='&#128465;';
+    pbtn.addEventListener('click',function(){delParceiro(puid,pid);});
+    prow.appendChild(plbl);prow.appendChild(pbtn);lista.appendChild(prow);
+  });}
+
+  row.style.display='flex';
+}
+
+async function addParceiro(){
+  const uid=document.getElementById('cfgUnidSel').value;
+  const nome=document.getElementById('nParc').value.trim();
+  if(!uid||!nome){toast('Selecione a unidade e digite o nome','err');return;}
+  try{
+    const snap=await db.collection('unidades').doc(uid).collection('parceiros').get();
+    const jaExiste=snap.docs.some(d=>(d.data().nome||'').toLowerCase()===nome.toLowerCase());
+    if(jaExiste){toast('Este parceiro ja esta cadastrado nesta unidade','err');return;}
+    await db.collection('unidades').doc(uid).collection('parceiros').add({nome,criadoEm:new Date()});
+    document.getElementById('nParc').value='';toast('Parceiro adicionado!','ok');
+    await renderParcCfg();await loadUnidadesForm();
+  }catch(e){toast('Erro: '+e.message,'err');}
+}
+
+async function delParceiro(uid,pid){
+  if(!confirm('Excluir este parceiro?'))return;
+  await db.collection('unidades').doc(uid).collection('parceiros').doc(pid).delete();
+  toast('Excluido','ok');await renderParcCfg();
+}
+
+// === PERGUNTAS ===
+async function loadPerguntas(){
+  try{
+    // Evitamos orderBy em dois campos (secao + ordem), que exigiria um
+    // indice composto no Firestore. Buscamos tudo e ordenamos no cliente.
+    const snap=await db.collection('perguntas').get();
+    PERGUNTAS=snap.docs.map(d=>({id:d.id,...d.data()}));
+    ordenarPerguntas();
+    // Semear as perguntas padrao exige permissao de escrita (gestor/admin).
+    // So tenta se ja houver um usuario logado com esse perfil; visitantes
+    // anonimos apenas leem o que ja estiver cadastrado.
+    if(!PERGUNTAS.length && CU){
+      try{await seedPerguntas();}
+      catch(e){console.warn('Nao foi possivel semear as perguntas padrao:',e);}
+    }
+    renderFormPerguntas();
+  }catch(e){
+    console.error('Erro ao carregar perguntas:',e);
+    toast('Nao foi possivel carregar as perguntas. Verifique as regras do Firestore.','err');
   }
-  if (senha1 !== senha2) {
-    err.textContent = 'As senhas não coincidem.';
-    err.style.display = 'block';
-    return;
-  }
-
-  setLoading('btnConfirmarTrocaSenha', true, 'Salvando...');
-  try {
-    const user = auth.currentUser;
-    await user.updatePassword(senha1);
-    await db.collection('usuarios').doc(user.uid).update({ exigeTrocaSenha: false });
-    showToast('Senha atualizada com sucesso!', 'success');
-    await onLogin(user); // recarrega o fluxo normal de login, agora sem a flag
-  } catch(e) {
-    err.textContent = mensagemErroAmigavel(e);
-    err.style.display = 'block';
-  } finally {
-    setLoading('btnConfirmarTrocaSenha', false, 'Salvar e Continuar');
-  }
 }
 
-// ═══════════════════════════════════════════════════════
-// 4. PERMISSÕES / NÍVEIS DE ACESSO
-// ═══════════════════════════════════════════════════════
-function aplicarPermissoes(nivel) {
-  const paginasPermitidas = NIVEIS_PAGINAS[nivel] || NIVEIS_PAGINAS.tecnico;
-
-  document.getElementById('nav-dashboard').style.display = paginasPermitidas.includes('dashboard') ? 'flex' : 'none';
-  document.getElementById('nav-registros').style.display = paginasPermitidas.includes('registros') ? 'flex' : 'none';
-  document.getElementById('nav-perguntas').style.display = paginasPermitidas.includes('perguntas') ? 'flex' : 'none';
-  document.getElementById('nav-usuarios').style.display  = paginasPermitidas.includes('usuarios')  ? 'flex' : 'none';
-  document.getElementById('nav-config').style.display       = paginasPermitidas.includes('config') ? 'flex' : 'none';
-  document.getElementById('nav-config-label').style.display = paginasPermitidas.includes('config') ? 'block' : 'none';
+function ordenarPerguntas(){
+  PERGUNTAS.sort((a,b)=>{
+    const sa=SECOES.indexOf(a.secao),sb=SECOES.indexOf(b.secao);
+    if(sa!==sb)return sa-sb;
+    return (a.ordem||0)-(b.ordem||0);
+  });
 }
 
-async function criarUsuario() {
-  const email = document.getElementById('novoEmail').value.trim();
-  const senha = document.getElementById('novaSenha').value;
-  const nome  = document.getElementById('novoNome').value.trim();
-  const nivel = document.getElementById('novoNivel').value;
-
-  if (!nome)  { showToast('Digite o nome do usuário', 'error'); return; }
-  if (!validarEmail(email)) { showToast('Digite um e-mail válido', 'error'); return; }
-  if (!senha || senha.length < 6) { showToast('A senha deve ter no mínimo 6 caracteres', 'error'); return; }
-
-  setLoading('btnCriarUsuario', true, 'Criando...');
-
-  // Usa uma instância secundária e isolada do Firebase só para criar o usuário.
-  // Isso evita que o SDK troque automaticamente a sessão logada para o usuário
-  // recém-criado — sem isso, criar um usuário deslogava quem estava no painel.
-  const appSecundario = firebase.initializeApp(FIREBASE_CONFIG, 'app-criacao-usuario-' + Date.now());
-  const authSecundario = appSecundario.auth();
-
-  try {
-    const cred = await authSecundario.createUserWithEmailAndPassword(email, senha);
-    await cred.user.updateProfile({ displayName: nome });
-    await db.collection('usuarios').doc(cred.user.uid).set({
-      email, nome, nivel,
-      ativo: true,
-      exigeTrocaSenha: true, // força a troca de senha no primeiro acesso
-      criadoEm: new Date(),
-    });
-    // Desloga e descarta a instância secundária — ela só existiu para criar a conta.
-    await authSecundario.signOut();
-    await appSecundario.delete();
-
-    document.getElementById('novoEmail').value = '';
-    document.getElementById('novaSenha').value = '';
-    document.getElementById('novoNome').value  = '';
-    document.getElementById('novoNivel').value = 'tecnico';
-    showToast('Usuário criado com sucesso! Ele precisará trocar a senha no primeiro acesso.', 'success');
-    await renderUsuariosConfig();
-  } catch(e) {
-    showToast(mensagemErroAmigavel(e), 'error');
-    try { await appSecundario.delete(); } catch(_) { /* já pode ter sido descartado */ }
-  } finally {
-    setLoading('btnCriarUsuario', false, '+ Criar');
-  }
+async function seedPerguntas(){
+  const defaults=[
+    {secao:'Identificacao da APR',ordem:1,texto:'A APR possui identificação da atividade?',tipo:'simnao',peso:1,inversa:false},
+    {secao:'Identificacao da APR',ordem:2,texto:'A data está preenchida na APR?',tipo:'simnao',peso:1,inversa:false},
+    {secao:'Identificacao da APR',ordem:3,texto:'A equipe está listada?',tipo:'simnao',peso:1,inversa:false},
+    {secao:'Identificacao de Riscos',ordem:1,texto:'Os riscos foram identificados?',tipo:'simnao',peso:3,inversa:false},
+    {secao:'Identificacao de Riscos',ordem:2,texto:'Os riscos são compatíveis com a atividade?',tipo:'simnao',peso:1,inversa:false},
+    {secao:'Medidas de Controle',ordem:1,texto:'Existem controles para os riscos?',tipo:'simnao',peso:3,inversa:false},
+    {secao:'Medidas de Controle',ordem:2,texto:'Os controles são específicos (não genéricos)?',tipo:'simnao',peso:1,inversa:false},
+    {secao:'Qualidade da APR',ordem:1,texto:'A APR está clara e legível?',tipo:'simnao',peso:1,inversa:false},
+    {secao:'Qualidade da APR',ordem:2,texto:'Foi copiada de outra APR sem adaptação?',tipo:'simnao',peso:1,inversa:true},
+    {secao:'Qualidade da APR',ordem:3,texto:'Nota geral da APR (0 a 10)',tipo:'nota',peso:1,inversa:false},
+    {secao:'Evidencias',ordem:1,texto:'Registro / evidência fotográfica presente?',tipo:'simnao',peso:1,inversa:false},
+    {secao:'Desvios',ordem:1,texto:'Existe não conformidade identificada?',tipo:'simnao',peso:1,inversa:true},
+  ];
+  const batch=db.batch();
+  defaults.forEach(p=>{const ref=db.collection('perguntas').doc();batch.set(ref,{...p,criadoEm:new Date()});});
+  await batch.commit();
+  const snap=await db.collection('perguntas').get();
+  PERGUNTAS=snap.docs.map(d=>({id:d.id,...d.data()}));
+  ordenarPerguntas();
 }
 
-async function alterarNivelUsuario(uid, nivel) {
-  try {
-    await db.collection('usuarios').doc(uid).update({ nivel });
-    showToast('Nível de acesso atualizado!', 'success');
-  } catch(e) {
-    showToast(mensagemErroAmigavel(e), 'error');
-  }
-}
-
-/** Envia um e-mail de redefinição de senha para o usuário, via Firebase Auth.
- *  Limitação técnica do plano gratuito: não existe API client-side para um
- *  admin definir diretamente a senha de outra pessoa (isso só existe no Admin
- *  SDK, que exige servidor/Cloud Functions, fora do plano Spark). A única via
- *  sem servidor é o próprio Firebase enviar um link de redefinição por e-mail
- *  — a pessoa abre o link e escolhe a nova senha por conta própria.
- */
-async function redefinirSenhaUsuario(email, nome) {
-  if (!confirm(`Enviar e-mail de redefinição de senha para ${nome} (${email})?`)) return;
-  try {
-    await auth.sendPasswordResetEmail(email);
-    showToast(`E-mail de redefinição enviado para ${email}.`, 'success');
-  } catch(e) {
-    showToast(mensagemErroAmigavel(e), 'error');
-  }
-}
-
-async function alterarStatusUsuario(uid, ativar) {
-  const acao = ativar ? 'reativar' : 'inativar';
-  if (!confirm(`Tem certeza que deseja ${acao} este usuário?${!ativar ? ' Ele não conseguirá mais fazer login, mas seu histórico de auditorias será mantido.' : ''}`)) return;
-  try {
-    await db.collection('usuarios').doc(uid).update({ ativo: ativar });
-    showToast(`Usuário ${ativar ? 'reativado' : 'inativado'} com sucesso!`, 'success');
-    await renderUsuariosConfig();
-  } catch(e) {
-    showToast(mensagemErroAmigavel(e), 'error');
-  }
-}
-
-async function renderUsuariosConfig() {
-  const snap = await db.collection('usuarios').get();
-  const users = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
-  document.getElementById('listaUsuarios').innerHTML = users.length
-    ? users.map(u => {
-        const inativo = u.ativo === false;
-        return `<div class="item-row" style="flex-wrap:wrap;gap:8px;${inativo ? 'opacity:.55' : ''}">
-          <div>
-            <div class="item-label">${escapeHtml(u.nome)} ${inativo ? '<span class="badge b-nc" style="margin-left:6px">Inativo</span>' : ''}</div>
-            <div class="item-sub">${escapeHtml(u.email)}</div>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <select onchange="alterarNivelUsuario('${u.uid}', this.value)" ${inativo ? 'disabled' : ''} style="padding:6px 10px;border-radius:8px;border:1px solid var(--slate200,#ccc)">
-              <option value="tecnico" ${u.nivel==='tecnico'?'selected':''}>Técnico</option>
-              <option value="gestor" ${u.nivel==='gestor'?'selected':''}>Gestor</option>
-              <option value="admin" ${u.nivel==='admin'?'selected':''}>Admin</option>
-            </select>
-            <button class="btn btn-secondary btn-sm" onclick="redefinirSenhaUsuario('${escapeHtml(u.email)}','${escapeHtml(u.nome)}')">🔑 Redefinir senha</button>
-            ${inativo
-              ? `<button class="btn btn-primary btn-sm" onclick="alterarStatusUsuario('${u.uid}', true)">✓ Reativar</button>`
-              : `<button class="btn btn-secondary btn-sm" onclick="alterarStatusUsuario('${u.uid}', false)" style="color:var(--red)">⛔ Inativar</button>`}
-          </div>
-        </div>`;
-      }).join('')
-    : '<div style="font-size:13px;color:var(--slate500);padding:8px">Nenhum usuário cadastrado.</div>';
-}
-
-// ═══════════════════════════════════════════════════════
-// 5. PERGUNTAS (Firestore + render do formulário)
-// ═══════════════════════════════════════════════════════
-async function carregarPerguntas() {
-  try {
-    const doc = await db.collection('config').doc('perguntas').get();
-    if (doc.exists && doc.data().secoes) {
-      const dados = doc.data();
-      PERGUNTAS = dados.secoes;
-      SECAO_NOMES = dados.nomes || JSON.parse(JSON.stringify(SECAO_NOMES_DEFAULT));
-      // "ordem" é novo — se o documento ainda não tiver, monta a partir das chaves existentes.
-      ORDEM_SECOES = dados.ordem && dados.ordem.length ? dados.ordem : Object.keys(PERGUNTAS);
-
-      // Compatibilidade com perguntas salvas antes do campo "ordem" existir:
-      // preenche com a posição original no array, para nunca depender de
-      // ordenação implícita de objeto/array vindo do Firestore.
-      let precisaResalvar = false;
-      Object.keys(PERGUNTAS).forEach(secaoId => {
-        PERGUNTAS[secaoId].forEach((p, idx) => {
-          if (p.ordem === undefined) { p.ordem = idx; precisaResalvar = true; }
+function renderFormPerguntas(){
+  const c=document.getElementById('form-perguntas');
+  if(!PERGUNTAS.length){c.innerHTML='<div class="empty"><div class="empty-ico">?</div><div class="empty-txt">Nenhuma pergunta configurada.</div></div>';atualizarEstadoEnvio();return;}
+  // Agrupa pelas secoes que realmente existem nos dados, em vez de exigir
+  // que o texto bata perfeitamente com a lista fixa SECOES. Isso evita que
+  // uma pergunta "suma" do formulario por causa de acento/maiuscula/espaco
+  // diferente no campo secao. As secoes conhecidas vem primeiro, na ordem
+  // padrao; qualquer secao extra aparece depois.
+  const secoesPresentes=[...new Set(PERGUNTAS.map(p=>p.secao))];
+  const ordemSecoes=[...SECOES.filter(s=>secoesPresentes.includes(s)),...secoesPresentes.filter(s=>!SECOES.includes(s))];
+  const frag=document.createDocumentFragment();
+  ordemSecoes.forEach(function(sec,si){
+    const ps=PERGUNTAS.filter(function(p){return p.secao===sec;});
+    if(!ps.length)return;
+    const hdr=document.createElement('div');
+    hdr.className='sec-hdr'+(sec==='Desvios'?' red':'');
+    hdr.textContent=(si+2)+'. '+sec;
+    frag.appendChild(hdr);
+    ps.forEach(function(p){
+      const block=document.createElement('div');block.className='qblock';
+      if(p.tipo==='nota'){
+        const lbl=document.createElement('div');lbl.className='q-lbl';
+        lbl.innerHTML=p.texto+' <span class="q-peso">P'+p.peso+'</span>';
+        block.appendChild(lbl);
+        const grid=document.createElement('div');grid.className='nota-grid';
+        for(let n=0;n<=10;n++){
+          const btn=document.createElement('button');
+          btn.className='nb2';btn.id='nb-'+p.id+'-'+n;btn.textContent=n;
+          btn.setAttribute('data-qid',p.id);btn.setAttribute('data-n',n);
+          btn.onclick=function(){selNota(this.getAttribute('data-qid'),parseInt(this.getAttribute('data-n')));};
+          grid.appendChild(btn);
+        }
+        block.appendChild(grid);
+      }else{
+        const lbl=document.createElement('div');lbl.className='q-lbl';
+        lbl.innerHTML=p.texto+' <span class="q-peso'+(p.peso>=3?' hi':'')+'">P'+p.peso+'</span>';
+        block.appendChild(lbl);
+        const rg=document.createElement('div');rg.className='rg';
+        ['Sim','Nao'].forEach(function(val){
+          const lbEl=document.createElement('label');
+          lbEl.className='ro';lbEl.id='ro-'+(val==='Sim'?'sim':'nao')+'-'+p.id;
+          lbEl.innerHTML='<input type="radio" name="'+p.id+'" value="'+val+'"> '+val;
+          lbEl.setAttribute('data-qid',p.id);lbEl.setAttribute('data-val',val);
+          lbEl.onclick=function(){selOpt(this.getAttribute('data-qid'),this.getAttribute('data-val'));};
+          rg.appendChild(lbEl);
         });
-      });
-      if (precisaResalvar) await salvarPerguntas();
-    } else {
-      PERGUNTAS = JSON.parse(JSON.stringify(PERGUNTAS_DEFAULT));
-      SECAO_NOMES = JSON.parse(JSON.stringify(SECAO_NOMES_DEFAULT));
-      ORDEM_SECOES = JSON.parse(JSON.stringify(ORDEM_SECOES_DEFAULT));
-      await db.collection('config').doc('perguntas').set({ secoes: PERGUNTAS, nomes: SECAO_NOMES, ordem: ORDEM_SECOES });
-    }
-  } catch(e) {
-    PERGUNTAS = JSON.parse(JSON.stringify(PERGUNTAS_DEFAULT));
-    SECAO_NOMES = JSON.parse(JSON.stringify(SECAO_NOMES_DEFAULT));
-    ORDEM_SECOES = JSON.parse(JSON.stringify(ORDEM_SECOES_DEFAULT));
+        block.appendChild(rg);
+      }
+      frag.appendChild(block);
+    });
+  });
+  c.innerHTML='';c.appendChild(frag);
+  atualizarEstadoEnvio();
+}
+
+function selOpt(qid,val){
+  RESPOSTAS[qid]=val;
+  const p=PERGUNTAS.find(x=>x.id===qid);
+  const ok=p&&ehInversa(p)?val==='Nao':val==='Sim';
+  const cls=ok?'sim':'nao';
+  document.getElementById('ro-sim-'+qid).className='ro'+(val==='Sim'?' '+cls:'');
+  document.getElementById('ro-nao-'+qid).className='ro'+(val==='Nao'?' '+cls:'');
+  atualizarEstadoEnvio();
+}
+function selNota(qid,n){
+  RESPOSTAS[qid]=n;
+  document.querySelectorAll('[id^="nb-'+qid+'-"]').forEach(b=>b.classList.remove('sel'));
+  const btn=document.getElementById('nb-'+qid+'-'+n);if(btn)btn.classList.add('sel');
+  atualizarEstadoEnvio();
+}
+
+function filtSec(sec,btn){
+  filtSecao=sec;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');renderPerguntasConfig();
+}
+
+function renderPerguntasConfig(){
+  const el=document.getElementById('listaPerg');
+  const list=filtSecao?PERGUNTAS.filter(p=>p.secao===filtSecao):PERGUNTAS;
+  if(!list.length){el.innerHTML='<div class="empty"><div class="empty-ico">?</div><div class="empty-txt">Nenhuma pergunta.</div></div>';return;}
+  let html='',lastSec='';
+  list.forEach(p=>{
+    if(!filtSecao&&p.secao!==lastSec){html+='<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--g700);padding:14px 0 6px;border-top:2px solid var(--g100);margin-top:4px">'+p.secao+'</div>';lastSec=p.secao;}
+    html+='<div class="pq-row"><div class="pq-body"><div class="pq-txt">'+p.texto+'</div>';
+    html+='<div class="pq-meta"><span>'+(p.tipo==='nota'?'Nota':'Sim/Nao')+'</span><span class="pq-peso-tag'+(p.peso>=3?' hi':'')+'">Peso '+p.peso+'</span><span>'+p.secao+'</span>'+(ehInversa(p)?'<span style="color:var(--yel)">Inversa</span>':'')+'</div></div>';
+    html+='<button class="btn-icon perg-edit" data-id="'+p.id+'">&#9999;</button>';
+    html+='<button class="btn-icon del perg-del" data-id="'+p.id+'">&#128465;</button></div>';
+  });
+  el.innerHTML=html;
+}
+
+function openModalPerg(id){
+  document.getElementById('mpTitle').textContent=id?'Editar Pergunta':'Nova Pergunta';
+  document.getElementById('mpId').value=id||'';
+  if(id){
+    const p=PERGUNTAS.find(x=>x.id===id);if(!p)return;
+    document.getElementById('mpTxt').value=p.texto||'';
+    document.getElementById('mpSec').value=p.secao||'Identificacao da APR';
+    document.getElementById('mpTipo').value=p.tipo||'simnao';
+    document.getElementById('mpPeso').value=p.peso||1;
+    document.getElementById('mpOrdem').value=p.ordem||1;
+    document.getElementById('mpInversa').checked=ehInversa(p);
+  }else{
+    document.getElementById('mpTxt').value='';
+    document.getElementById('mpSec').value='Identificacao da APR';
+    document.getElementById('mpTipo').value='simnao';
+    document.getElementById('mpPeso').value=1;document.getElementById('mpOrdem').value=1;
+    document.getElementById('mpInversa').checked=false;
   }
-  renderPerguntas();
-  renderSelectSecoes();
+  openModal('modalPerg');
 }
 
-async function salvarPerguntas() {
-  await db.collection('config').doc('perguntas').set({ secoes: PERGUNTAS, nomes: SECAO_NOMES, ordem: ORDEM_SECOES });
-}
-
-/** Preenche o <select> de seções da página "Perguntas" respeitando ORDEM_SECOES. */
-function renderSelectSecoes() {
-  const sel = document.getElementById('pgSecaoSel');
-  if (!sel) return;
-  const valorAtual = sel.value;
-  sel.innerHTML = ORDEM_SECOES.map((id, idx) =>
-    `<option value="${id}">${idx+1}. ${escapeHtml(SECAO_NOMES[id] || id)}</option>`
-  ).join('');
-  // Mantém a seleção anterior se ela ainda existir, senão seleciona a primeira.
-  if (ORDEM_SECOES.includes(valorAtual)) sel.value = valorAtual;
-  renderPerguntasConfig();
-}
-
-async function salvarNomeSecao() {
-  const secaoId = document.getElementById('pgSecaoSel').value;
-  const nome = document.getElementById('pgNomeSecao').value.trim();
-  if (!nome) { showToast('Digite o nome da seção','error'); return; }
-  SECAO_NOMES[secaoId] = nome;
-  await salvarPerguntas();
-  renderPerguntas();
-  renderSelectSecoes();
-  showToast('Nome da seção atualizado!', 'success');
-}
-
-async function adicionarSecao() {
-  const nome = document.getElementById('pgNovaSecaoNome').value.trim();
-  if (!nome) { showToast('Digite o nome da nova seção','error'); return; }
-
-  const novoId = 'q-secao-' + Date.now();
-  SECAO_NOMES[novoId] = nome;
-  PERGUNTAS[novoId] = [];
-  ORDEM_SECOES.push(novoId);
-
-  await salvarPerguntas();
-  document.getElementById('pgNovaSecaoNome').value = '';
-  renderPerguntas();
-  renderSelectSecoes();
-  document.getElementById('pgSecaoSel').value = novoId;
-  renderPerguntasConfig();
-  showToast('Seção criada!', 'success');
-}
-
-async function removerSecao() {
-  const secaoId = document.getElementById('pgSecaoSel').value;
-  if (!secaoId) return;
-  if (ORDEM_SECOES.length <= 1) { showToast('É preciso manter ao menos uma seção.','error'); return; }
-
-  const nomeSecao = SECAO_NOMES[secaoId] || secaoId;
-  const qtdPerguntas = (PERGUNTAS[secaoId] || []).length;
-  const aviso = qtdPerguntas > 0
-    ? `Remover a seção "${nomeSecao}"? Isso também excluirá as ${qtdPerguntas} pergunta(s) dela. Essa ação não pode ser desfeita.`
-    : `Remover a seção "${nomeSecao}"?`;
-  if (!confirm(aviso)) return;
-
-  delete PERGUNTAS[secaoId];
-  delete SECAO_NOMES[secaoId];
-  ORDEM_SECOES = ORDEM_SECOES.filter(id => id !== secaoId);
-
-  await salvarPerguntas();
-  renderPerguntas();
-  renderSelectSecoes();
-  showToast('Seção removida!', 'success');
-}
-
-function renderPerguntasConfig() {
-  const secaoId = document.getElementById('pgSecaoSel').value;
-  document.getElementById('pgNomeSecao').value = SECAO_NOMES[secaoId] || '';
-  const lista = perguntasOrdenadas(secaoId);
-  document.getElementById('listaPerguntas').innerHTML = lista.length
-    ? lista.map((p, idx) => `<div class="item-row">
-        <div style="flex:1">
-          <div class="item-label">
-            <span style="color:var(--slate500);font-weight:600">${idx+1}.</span>
-            ${escapeHtml(p.texto)} <span class="q-peso">P${p.peso}</span>
-            ${p.tipo==='nota' ? '<span class="item-sub">(nota)</span>' : ''}
-            ${p.invertida ? '<span class="item-sub" style="color:var(--red)">("Não" é conforme)</span>' : ''}
-          </div>
-        </div>
-        <div style="display:flex;gap:4px">
-          ${idx > 0 ? `<button class="btn-icon" onclick="moverPergunta('${secaoId}','${p.id}',-1)" title="Mover para cima">↑</button>` : ''}
-          ${idx < lista.length-1 ? `<button class="btn-icon" onclick="moverPergunta('${secaoId}','${p.id}',1)" title="Mover para baixo">↓</button>` : ''}
-          <button class="btn btn-secondary btn-sm" onclick="removerPergunta('${secaoId}','${p.id}')">🗑️ Remover</button>
-        </div>
-      </div>`).join('')
-    : '<div style="font-size:13px;color:var(--slate500);padding:8px">Nenhuma pergunta nesta seção.</div>';
-}
-
-async function adicionarPergunta() {
-  const secaoId = document.getElementById('pgSecaoSel').value;
-  const texto = document.getElementById('novaPerguntaTexto').value.trim();
-  const peso = parseInt(document.getElementById('novaPerguntaPeso').value, 10) || 1;
-  const tipo = document.getElementById('novaPerguntaTipo').value;
-  const invertida = document.getElementById('novaPerguntaInvertida').checked;
-
-  if (!secaoId) { showToast('Crie ou selecione uma seção primeiro','error'); return; }
-  if (!texto) { showToast('Digite o texto da pergunta','error'); return; }
-  if (peso < 1 || peso > 5) { showToast('O peso deve estar entre 1 e 5','error'); return; }
-
-  if (!PERGUNTAS[secaoId]) PERGUNTAS[secaoId] = [];
-  const novoId = 'q' + Date.now();
-  const proximaOrdem = PERGUNTAS[secaoId].length;
-  PERGUNTAS[secaoId].push({ id: novoId, texto, peso, tipo, invertida: tipo === 'sn' ? invertida : false, ordem: proximaOrdem });
-
-  await salvarPerguntas();
-  document.getElementById('novaPerguntaTexto').value = '';
-  document.getElementById('novaPerguntaPeso').value = '1';
-  document.getElementById('novaPerguntaInvertida').checked = false;
-  showToast('Pergunta adicionada!', 'success');
-  renderPerguntas();
-  renderPerguntasConfig();
-}
-
-async function removerPergunta(secaoId, perguntaId) {
-  if (!confirm('Remover esta pergunta? Essa ação não pode ser desfeita.')) return;
-  PERGUNTAS[secaoId] = (PERGUNTAS[secaoId] || []).filter(p => p.id !== perguntaId);
-  renumerarOrdem(secaoId);
-  await salvarPerguntas();
-  showToast('Pergunta removida!', 'success');
-  renderPerguntas();
-  renderPerguntasConfig();
-}
-
-/** Move uma pergunta para cima (-1) ou para baixo (+1) dentro da seção,
- *  trocando seu valor de "ordem" com o vizinho — assim a posição na tela
- *  fica permanentemente fixada, sem depender de nenhuma ordenação implícita. */
-async function moverPergunta(secaoId, perguntaId, direcao) {
-  const lista = perguntasOrdenadas(secaoId);
-  const posAtual = lista.findIndex(p => p.id === perguntaId);
-  const posVizinho = posAtual + direcao;
-  if (posAtual === -1 || posVizinho < 0 || posVizinho >= lista.length) return;
-
-  const ordemAtual = lista[posAtual].ordem ?? posAtual;
-  const ordemVizinho = lista[posVizinho].ordem ?? posVizinho;
-
-  const real = PERGUNTAS[secaoId];
-  const idxAtualReal = real.findIndex(p => p.id === lista[posAtual].id);
-  const idxVizinhoReal = real.findIndex(p => p.id === lista[posVizinho].id);
-  real[idxAtualReal].ordem = ordemVizinho;
-  real[idxVizinhoReal].ordem = ordemAtual;
-
-  await salvarPerguntas();
-  renderPerguntas();
-  renderPerguntasConfig();
-}
-
-/** Reatribui valores de "ordem" sequenciais (0,1,2...) após uma remoção,
- *  evitando buracos na sequência que poderiam causar comportamento estranho
- *  em comparações futuras. */
-function renumerarOrdem(secaoId) {
-  const lista = perguntasOrdenadas(secaoId);
-  lista.forEach((p, idx) => {
-    const real = PERGUNTAS[secaoId].find(x => x.id === p.id);
-    if (real) real.ordem = idx;
-  });
-}
-
-/** Gera os blocos do formulário (cabeçalho + perguntas) dinamicamente,
- *  na ordem definida por ORDEM_SECOES, dentro do container fixo do HTML. */
-/** Retorna as perguntas de uma seção sempre na mesma ordem, baseada no campo
- *  "ordem" salvo em cada pergunta — nunca depende da ordem "natural" de um
- *  array ou objeto vindo do Firestore, que não é garantida entre leituras. */
-function perguntasOrdenadas(secaoId) {
-  const lista = PERGUNTAS[secaoId] || [];
-  return [...lista].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
-}
-
-function renderPerguntas() {
-  const container = document.getElementById('secoes-dinamicas-container');
-  if (!container) return;
-
-  container.innerHTML = ORDEM_SECOES.map((secaoId, idx) => {
-    const nome = SECAO_NOMES[secaoId] || secaoId;
-    const perguntas = perguntasOrdenadas(secaoId);
-    const ehUltima = idx === ORDEM_SECOES.length - 1;
-    const corFundo = ehUltima ? 'background:var(--red)' : '';
-    return `
-      <div class="form-section-header" style="${corFundo}">${escapeHtml(nome)}</div>
-      <div>${perguntas.map(p => p.tipo === 'nota' ? renderNota(p) : renderSN(p)).join('')}</div>
-    `;
-  }).join('');
-}
-
-function renderSN(p) {
-  const isHigh = p.peso >= 3;
-  return `<div class="question-block">
-    <div class="q-label">
-      ${escapeHtml(p.texto)}
-      <span class="q-peso ${isHigh?'high':''}">P${p.peso}</span>
-      ${p.invertida ? '<span class="item-sub" style="color:var(--red)">("Não" é conforme)</span>' : ''}
-    </div>
-    <div class="radio-group">
-      <label class="radio-opt" id="opt-sim-${p.id}" onclick="selectOpt('${p.id}','Sim')">
-        <input type="radio" name="${p.id}" value="Sim"> ✅ Sim
-      </label>
-      <label class="radio-opt" id="opt-nao-${p.id}" onclick="selectOpt('${p.id}','Não')">
-        <input type="radio" name="${p.id}" value="Não"> ❌ Não
-      </label>
-    </div>
-    <div class="form-field" style="margin-top:8px">
-      <input type="text" id="coment-${p.id}" placeholder="Comentário (opcional)" oninput="setComentario('${p.id}', this.value)"/>
-    </div>
-  </div>`;
-}
-
-function renderNota(p) {
-  return `<div class="question-block">
-    <div class="q-label">${escapeHtml(p.texto)} <span class="q-peso">P${p.peso}</span></div>
-    <div class="nota-grid">
-      ${[0,1,2,3,4,5,6,7,8,9,10].map(n =>
-        `<button class="nota-btn" id="nota-btn-${n}" onclick="selectNota(${n})" type="button">${n}</button>`
-      ).join('')}
-    </div>
-    <div class="form-field" style="margin-top:8px">
-      <input type="text" id="coment-${p.id}" placeholder="Comentário (opcional)" oninput="setComentario('${p.id}', this.value)"/>
-    </div>
-  </div>`;
-}
-
-function setComentario(qId, valor) {
-  COMENTARIOS[qId] = valor;
-}
-
-function selectOpt(qId, val) {
-  RESPOSTAS[qId] = val;
-  const sim = document.getElementById(`opt-sim-${qId}`);
-  const nao = document.getElementById(`opt-nao-${qId}`);
-  sim.className = 'radio-opt' + (val==='Sim'?' selected-sim':'');
-  nao.className = 'radio-opt' + (val==='Não'?' selected-nao':'');
-}
-
-function selectNota(n) {
-  notaSelecionada = n;
-  document.querySelectorAll('.nota-btn').forEach(b => b.classList.remove('selected'));
-  document.getElementById(`nota-btn-${n}`).classList.add('selected');
-  RESPOSTAS['q10'] = n;
-}
-
-// ═══════════════════════════════════════════════════════
-// 6. UNIDADES & PARCEIROS
-// ═══════════════════════════════════════════════════════
-async function carregarUnidadesForm() {
-  try {
-    const snap = await db.collection('unidades').orderBy('nome').get();
-    unidades = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  } catch(e) {
-    showToast('Não foi possível carregar as unidades. Verifique sua conexão.', 'error');
-    return;
-  }
-
-  const sel = document.getElementById('fUnidade');
-  sel.innerHTML = '<option value="">Selecione a unidade...</option>';
-  unidades.forEach(u => {
-    const opt = document.createElement('option');
-    opt.value = u.id; opt.textContent = u.nome;
-    sel.appendChild(opt);
-  });
-
-  const dSel = document.getElementById('dFiltroUnidade');
-  dSel.innerHTML = '<option value="">Todas</option>';
-  unidades.forEach(u => {
-    const opt = document.createElement('option');
-    opt.value = u.id; opt.textContent = u.nome;
-    dSel.appendChild(opt);
-  });
-}
-
-async function carregarParceiros() {
-  const unidadeId = document.getElementById('fUnidade').value;
-  const sel = document.getElementById('fParceiro');
-  sel.innerHTML = '<option value="">Carregando...</option>';
-  if (!unidadeId) { sel.innerHTML = '<option value="">Selecione a unidade primeiro...</option>'; return; }
-
-  try {
-    const snap = await db.collection('unidades').doc(unidadeId).collection('parceiros').orderBy('nome').get();
-    parceiros[unidadeId] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  } catch(e) {
-    sel.innerHTML = '<option value="">Erro ao carregar parceiros</option>';
-    showToast('Não foi possível carregar os parceiros desta unidade.', 'error');
-    return;
-  }
-
-  sel.innerHTML = '<option value="">Selecione o parceiro...</option>';
-  parceiros[unidadeId].forEach(p => {
-    const opt = document.createElement('option');
-    opt.value = p.nome; opt.textContent = p.nome;
-    sel.appendChild(opt);
-  });
-
-  const dSel = document.getElementById('dFiltroParceiro');
-  dSel.innerHTML = '<option value="">Todas</option>';
-  parceiros[unidadeId].forEach(p => {
-    const opt = document.createElement('option');
-    opt.value = p.nome; opt.textContent = p.nome;
-    dSel.appendChild(opt);
-  });
-}
-
-// ═══════════════════════════════════════════════════════
-// 7. ENVIO DE AUDITORIA (+ validação + modo offline)
-// ═══════════════════════════════════════════════════════
-function validarFormularioAuditoria() {
-  const unidadeId  = document.getElementById('fUnidade').value;
-  const parceiro   = document.getElementById('fParceiro').value;
-  const data       = document.getElementById('fData').value;
-  const numeroAPR  = document.getElementById('fNumeroAPR').value.trim();
-  const local      = document.getElementById('fLocal').value.trim();
-
-  if (!unidadeId)  return 'Selecione a unidade.';
-  if (!parceiro)   return 'Selecione a empresa parceira.';
-  if (!data)       return 'Informe a data da auditoria.';
-  if (new Date(data) > new Date(new Date().toDateString())) return 'A data da auditoria não pode ser no futuro.';
-  if (!numeroAPR)  return 'Informe o número da APR.';
-  if (!local)      return 'Informe o local / frente de serviço.';
-
-  const todasPerguntas = ORDEM_SECOES.flatMap(secaoId => perguntasOrdenadas(secaoId));
-  for (const p of todasPerguntas) {
-    if (RESPOSTAS[p.id] === undefined) return `Responda a pergunta: "${p.texto}"`;
-  }
-  return null;
-}
-
-async function enviarAuditoria() {
-  const erro = validarFormularioAuditoria();
-  if (erro) { showToast(erro, 'error'); return; }
-
-  const unidadeId  = document.getElementById('fUnidade').value;
-  const parceiro   = document.getElementById('fParceiro').value;
-  const data       = document.getElementById('fData').value;
-  const numeroAPR  = document.getElementById('fNumeroAPR').value.trim();
-  const local      = document.getElementById('fLocal').value.trim();
-  const comentarios= document.getElementById('fComentarios').value.trim();
-
-  const todasPerguntas = ORDEM_SECOES.flatMap(secaoId => perguntasOrdenadas(secaoId));
-  const unidadeNome = unidades.find(u => u.id === unidadeId)?.nome || unidadeId;
-  const user = auth.currentUser;
-
-  let pontosObtidos = 0, pontosMaximos = 0;
-  todasPerguntas.forEach(p => {
-    if (p.tipo === 'nota') return;
-    const resp = RESPOSTAS[p.id];
-    pontosMaximos += p.peso;
-    const acertou = p.invertida ? resp === 'Não' : resp === 'Sim';
-    if (acertou) pontosObtidos += p.peso;
-  });
-  const conformidade = pontosMaximos ? Math.round((pontosObtidos / pontosMaximos) * 100) : null;
-
-  const houveDesvio = todasPerguntas.some(p => {
-    if (p.tipo === 'nota') return false;
-    const esperado = p.invertida ? 'Não' : 'Sim';
-    return RESPOSTAS[p.id] !== esperado;
-  });
-
-  const doc = {
-    unidadeId, unidadeNome, parceiro, data, numeroAPR, local, comentarios,
-    respostas: { ...RESPOSTAS },
-    comentariosPerguntas: { ...COMENTARIOS },
-    nota: RESPOSTAS['q10'] ?? null,
-    conformidade,
-    naoConformidade: houveDesvio,
-    tecnico: { uid: user.uid, nome: user.displayName || user.email, email: user.email },
+async function salvarPergunta(){
+  const id=document.getElementById('mpId').value;
+  const data={
+    texto:document.getElementById('mpTxt').value.trim(),
+    secao:document.getElementById('mpSec').value,
+    tipo:document.getElementById('mpTipo').value,
+    peso:parseInt(document.getElementById('mpPeso').value)||1,
+    ordem:parseInt(document.getElementById('mpOrdem').value)||1,
+    inversa:document.getElementById('mpInversa').checked,
   };
+  if(!data.texto){toast('Digite o texto','err');return;}
+  if(id)await db.collection('perguntas').doc(id).update(data);
+  else await db.collection('perguntas').add({...data,criadoEm:new Date()});
+  closeModal('modalPerg');toast(id?'Atualizada!':'Criada!','ok');
+  await loadPerguntas();renderPerguntasConfig();
+}
 
-  setLoading('btnEnviarAuditoria', true, 'Enviando...');
+async function delPergunta(id){
+  if(!confirm('Excluir esta pergunta?'))return;
+  await db.collection('perguntas').doc(id).delete();
+  toast('Excluida','ok');await loadPerguntas();renderPerguntasConfig();
+}
 
-  if (!navigator.onLine) {
-    salvarNaFilaOffline(doc);
-    showToast('Sem conexão. Auditoria salva no dispositivo e será enviada quando a internet voltar. 📴', 'success');
-    resetForm();
-    setLoading('btnEnviarAuditoria', false, '✅ Enviar Auditoria');
-    return;
+// === ENVIO FORMULARIO ===
+async function enviarAuditoria(){
+  const auditor=document.getElementById('fAuditor').value;
+  const unidadeId=document.getElementById('fUnid').value;
+  const parceiro=document.getElementById('fParc').value;
+  const data=document.getElementById('fData').value;
+  const apr=document.getElementById('fAPR').value.trim();
+  const local=document.getElementById('fLocal').value.trim();
+  const coment=document.getElementById('fComent').value.trim();
+  if(!auditor||!unidadeId||!parceiro||!data||!apr||!local){toast('Preencha todos os campos obrigatorios (*)','err');return;}
+  for(const p of PERGUNTAS){if(RESPOSTAS[p.id]===undefined){toast('Responda: '+p.texto,'err');return;}}
+  const unidadeNome=UNIDADES.find(u=>u.id===unidadeId)?.nome||unidadeId;
+  let obtidos=0,maximos=0,isNC=false;
+  PERGUNTAS.forEach(p=>{
+    if(p.tipo==='nota')return;
+    maximos+=p.peso;
+    const ok=ehInversa(p)?RESPOSTAS[p.id]==='Nao':RESPOSTAS[p.id]==='Sim';
+    if(ok)obtidos+=p.peso;
+    if(!ok)isNC=true;
+  });
+  const conformidade=maximos>0?Math.round((obtidos/maximos)*100):0;
+  const notaP=PERGUNTAS.find(p=>p.tipo==='nota');
+  const doc={auditor,unidadeId,unidadeNome,parceiro,data,apr,local,coment,
+    respostas:{...RESPOSTAS},conformidade,naoConformidade:isNC,
+    nota:notaP?(RESPOSTAS[notaP.id]??null):null,
+    enviadoEm:firebase.firestore.FieldValue.serverTimestamp()};
+  try{
+    const btn=document.getElementById('btnEnviar');
+    btn.disabled=true;btn.textContent='Enviando...';
+    await db.collection('auditorias').add(doc);
+    toast('Auditoria enviada com sucesso!','ok');
+    resetForm();if(CU)await loadAuditorias();
+    btn.disabled=false;btn.textContent='Enviar Auditoria';
+  }catch(e){toast('Erro: '+e.message,'err');document.getElementById('btnEnviar').disabled=false;document.getElementById('btnEnviar').textContent='Enviar Auditoria';}
+}
+
+function resetForm(){
+  ['fAuditor','fUnid'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fParc').innerHTML='<option value="">Selecione a unidade primeiro...</option>';
+  ['fAPR','fLocal','fComent'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fData').value=new Date().toISOString().split('T')[0];
+  RESPOSTAS={};
+  document.querySelectorAll('.ro').forEach(el=>el.className='ro');
+  document.querySelectorAll('.nb2').forEach(b=>b.classList.remove('sel'));
+  window.scrollTo({top:0,behavior:'smooth'});
+  atualizarEstadoEnvio();
+}
+
+// === AUDITORIAS ===
+async function loadAuditorias(){
+  try{
+    const snap=await db.collection('auditorias').orderBy('enviadoEm','desc').limit(500).get();
+    AUDITORIAS=snap.docs.map(d=>recalcAuditoria({id:d.id,...d.data()}));
+    atualizarFiltroEmpresas();
+    renderDash();renderReg();
+  }catch(e){console.warn(e);}
+}
+
+// Recalcula conformidade, nao-conformidade e nota a partir das respostas brutas
+// e das perguntas ATUAIS, em vez de confiar cegamente no valor gravado no
+// documento. Isso corrige exibicoes desatualizadas quando uma pergunta muda
+// (ex: marcar/desmarcar "Resposta inversa") sem precisar editar dados antigos.
+function recalcAuditoria(a){
+  const respostas=a.respostas||{};
+  let obtidos=0,maximos=0,isNC=false,nota=null,temPerguntaRespondida=false;
+  PERGUNTAS.forEach(p=>{
+    const resp=respostas[p.id];
+    if(p.tipo==='nota'){if(resp!=null)nota=resp;return;}
+    if(resp===undefined)return; // pergunta nao existia quando a auditoria foi enviada
+    temPerguntaRespondida=true;
+    maximos+=p.peso;
+    const ok=ehInversa(p)?resp==='Nao':resp==='Sim';
+    if(ok)obtidos+=p.peso;
+    if(!ok)isNC=true;
+  });
+  if(temPerguntaRespondida){
+    a.conformidade=maximos>0?Math.round((obtidos/maximos)*100):0;
+    a.naoConformidade=isNC;
   }
-
-  try {
-    await db.collection('auditorias').add({ ...doc, criadoEm: firebase.firestore.FieldValue.serverTimestamp() });
-    showToast('Auditoria enviada com sucesso! ✅', 'success');
-    resetForm();
-    await carregarAuditorias();
-  } catch(e) {
-    salvarNaFilaOffline(doc);
-    showToast('Falha ao enviar. Auditoria salva no dispositivo e será reenviada automaticamente. 📴', 'error');
-    resetForm();
-  } finally {
-    setLoading('btnEnviarAuditoria', false, '✅ Enviar Auditoria');
-  }
+  if(nota!=null)a.nota=nota;
+  return a;
 }
 
-function resetForm() {
-  document.getElementById('fUnidade').value = '';
-  document.getElementById('fParceiro').innerHTML = '<option value="">Selecione a unidade primeiro...</option>';
-  document.getElementById('fNumeroAPR').value = '';
-  document.getElementById('fLocal').value = '';
-  document.getElementById('fComentarios').value = '';
-  setDefaultDate();
-  Object.keys(RESPOSTAS).forEach(k => delete RESPOSTAS[k]);
-  Object.keys(COMENTARIOS).forEach(k => delete COMENTARIOS[k]);
-  notaSelecionada = null;
-  document.querySelectorAll('.radio-opt').forEach(el => el.className = 'radio-opt');
-  document.querySelectorAll('.nota-btn').forEach(b => b.classList.remove('selected'));
-  document.querySelectorAll('[id^="coment-"]').forEach(el => el.value = '');
+// Preenche os filtros "Empresa" do Dashboard e de Registros com as empresas
+// que realmente aparecem nas auditorias carregadas (antes ficavam sem opcoes).
+function atualizarFiltroEmpresas(){
+  const nomes=[...new Set(AUDITORIAS.map(a=>a.parceiro).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  ['dParc','rParc'].forEach(id=>{
+    const el=document.getElementById(id);if(!el)return;
+    const v=el.value;el.innerHTML='<option value="">Todas</option>';
+    nomes.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;el.appendChild(o);});
+    if(nomes.includes(v))el.value=v;
+  });
 }
 
-// ═══════════════════════════════════════════════════════
-// 8. DASHBOARD
-// ═══════════════════════════════════════════════════════
-async function carregarAuditorias() {
-  try {
-    const snap = await db.collection('auditorias').orderBy('criadoEm','desc').limit(500).get();
-    AUDITORIAS = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    renderDash();
-    renderRegistros();
-  } catch(e) {
-    showToast('Não foi possível carregar os registros. Mostrando dados em cache, se houver.', 'error');
-  }
-}
-
-async function atualizarDashboard() {
-  setLoading('btnAtualizarDash', true, 'Atualizando...');
-  await carregarAuditorias();
-  setLoading('btnAtualizarDash', false, '↻ Atualizar');
-}
-
-function getFiltradas() {
-  const unidade = document.getElementById('dFiltroUnidade')?.value || '';
-  const parceiro= document.getElementById('dFiltroParceiro')?.value || '';
-  const dias    = parseInt(document.getElementById('dFiltroPeriodo')?.value) || 0;
-  const cutoff  = dias ? new Date(Date.now() - dias*864e5) : null;
-
-  return AUDITORIAS.filter(a => {
-    if (unidade && a.unidadeId !== unidade) return false;
-    if (parceiro && a.parceiro !== parceiro) return false;
-    if (cutoff) {
-      const d = a.data ? new Date(a.data) : null;
-      if (!d || d < cutoff) return false;
-    }
+function getFilt(unid,parc,audit,per,nc){
+  const cutoff=per?new Date(Date.now()-parseInt(per)*864e5):null;
+  return AUDITORIAS.filter(a=>{
+    if(unid&&a.unidadeId!==unid)return false;
+    if(parc&&a.parceiro!==parc)return false;
+    if(audit&&a.auditor!==audit)return false;
+    if(nc==='nc'&&!a.naoConformidade)return false;
+    if(nc==='ok'&&a.naoConformidade)return false;
+    if(cutoff&&a.data&&new Date(a.data)<cutoff)return false;
     return true;
   });
 }
 
-function corConf(v) { return v>=90?'#16A34A':v>=75?'#D97706':'#DC2626'; }
-function kc(id) { if(CHARTS[id]){ CHARTS[id].destroy(); delete CHARTS[id]; } }
+// === DASHBOARD ===
+function corConf(v){return v>=90?'#16A34A':v>=75?'#D97706':'#DC2626';}
+function kc(id){if(CHARTS[id]){CHARTS[id].destroy();delete CHARTS[id];}}
 
-function renderDash() {
-  const dashLoading = document.getElementById('dashLoading');
-  if (dashLoading) dashLoading.style.display = 'flex';
-
-  const dados = getFiltradas();
-
-  const parcMap = {};
-  dados.forEach(a => {
-    if (!parcMap[a.parceiro]) parcMap[a.parceiro] = { total:0, nc:0, conf:[], notas:[] };
-    parcMap[a.parceiro].total++;
-    if (a.naoConformidade) parcMap[a.parceiro].nc++;
-    if (a.conformidade != null) parcMap[a.parceiro].conf.push(a.conformidade);
-    if (a.nota != null) parcMap[a.parceiro].notas.push(+a.nota);
+function renderDash(){
+  const dados=getFilt(
+    document.getElementById('dUnid')?.value||'',
+    document.getElementById('dParc')?.value||'',
+    document.getElementById('dAudit')?.value||'',
+    document.getElementById('dPer')?.value||'','');
+  const pm={};
+  dados.forEach(a=>{
+    if(!pm[a.parceiro])pm[a.parceiro]={total:0,nc:0,conf:[],notas:[]};
+    pm[a.parceiro].total++;if(a.naoConformidade)pm[a.parceiro].nc++;
+    if(a.conformidade!=null)pm[a.parceiro].conf.push(a.conformidade);
+    if(a.nota!=null)pm[a.parceiro].notas.push(+a.nota);
   });
-
-  const emps = Object.keys(parcMap);
-  const confMed = {};
-  const notaMed = {};
-  const scoreCombinado = {};
-  emps.forEach(e => {
-    const cs = parcMap[e].conf;
-    const ns = parcMap[e].notas;
-    confMed[e] = cs.length ? Math.round(cs.reduce((a,b)=>a+b,0)/cs.length) : 0;
-    notaMed[e] = ns.length ? Math.round((ns.reduce((a,b)=>a+b,0)/ns.length) * 10) / 10 : null;
-    // Score combinado: 50% conformidade (já em %) + 50% nota de qualidade
-    // (convertida de 0-10 para 0-100). Se a empresa não tiver nenhuma nota
-    // registrada, o score usa só a conformidade, para não penalizá-la
-    // injustamente por uma métrica que ela nunca recebeu.
-    const notaPct = notaMed[e] != null ? notaMed[e] * 10 : null;
-    scoreCombinado[e] = notaPct != null ? Math.round((confMed[e] + notaPct) / 2) : confMed[e];
-  });
-
-  const media   = emps.length ? Math.round(emps.reduce((s,e)=>s+confMed[e],0)/emps.length) : 0;
-  const totalNC = dados.filter(a=>a.naoConformidade).length;
-  const melhor  = [...emps].sort((a,b)=>scoreCombinado[b]-scoreCombinado[a])[0];
-
-  document.getElementById('dKpiConf').textContent    = dados.length ? media+'%' : '—';
-  document.getElementById('dKpiAud').textContent     = dados.length;
-  document.getElementById('dKpiNC').textContent      = totalNC;
-  document.getElementById('dKpiMelhor').textContent  = melhor || '—';
-  document.getElementById('dKpiMelhorSub').textContent = melhor
-    ? `score ${scoreCombinado[melhor]} (conf. ${confMed[melhor]}%${notaMed[melhor]!=null ? ' + nota '+notaMed[melhor] : ''})`
-    : '';
-
+  const emps=Object.keys(pm);
+  const cm={};emps.forEach(e=>{const cs=pm[e].conf;cm[e]=cs.length?Math.round(cs.reduce((a,b)=>a+b,0)/cs.length):0;});
+  const media=emps.length?Math.round(emps.reduce((s,e)=>s+cm[e],0)/emps.length):0;
+  const totalNC=dados.filter(a=>a.naoConformidade).length;
+  const melhor=[...emps].sort((a,b)=>cm[b]-cm[a])[0];
+  document.getElementById('kConf').textContent=dados.length?media+'%':'--';
+  document.getElementById('kAud').textContent=dados.length;
+  document.getElementById('kNC').textContent=totalNC;
+  document.getElementById('kMel').textContent=melhor||'--';
+  document.getElementById('kMelSub').textContent=melhor?cm[melhor]+'% conformidade':'';
   kc('b');
-  if (emps.length) {
-    CHARTS['b'] = new Chart(document.getElementById('cBarras').getContext('2d'), {
-      type:'bar',
-      data:{ labels:emps, datasets:[{
-        data:emps.map(e=>confMed[e]),
-        backgroundColor:emps.map(e=>corConf(confMed[e])+'CC'),
-        borderColor:emps.map(e=>corConf(confMed[e])),
-        borderWidth:2, borderRadius:8
-      }]},
-      options:{ responsive:true, maintainAspectRatio:false,
-        plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.raw}%`}}},
-        scales:{ y:{min:0,max:100,grid:{color:'#F1F5F9'},ticks:{callback:v=>v+'%',font:{family:'Outfit',size:12}}},
-                 x:{grid:{display:false},ticks:{font:{family:'Outfit',size:12}}} }, animation:{duration:700} }
-    });
-  }
-
+  if(emps.length)CHARTS['b']=new Chart(document.getElementById('cBar'),{
+    type:'bar',data:{labels:emps,datasets:[{data:emps.map(e=>cm[e]),backgroundColor:emps.map(e=>corConf(cm[e])+'CC'),borderColor:emps.map(e=>corConf(cm[e])),borderWidth:2,borderRadius:8}]},
+    options:{maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.raw+'%'}}},scales:{y:{min:0,max:100,grid:{color:'#F1F5F9'},ticks:{callback:v=>v+'%',font:{family:'Outfit',size:12}}},x:{grid:{display:false},ticks:{font:{family:'Outfit',size:12}}}},animation:{duration:600}}
+  });
   kc('nc');
-  if (emps.length) {
-    CHARTS['nc'] = new Chart(document.getElementById('cNC').getContext('2d'), {
-      type:'doughnut',
-      data:{ labels:emps, datasets:[{
-        data:emps.map(e=>parcMap[e].nc||0),
-        backgroundColor:CORES_EMPRESA.slice(0,emps.length),
-        borderWidth:3, borderColor:'#fff'
-      }]},
-      options:{ responsive:true, maintainAspectRatio:false,
-        plugins:{ legend:{position:'bottom',labels:{font:{family:'Outfit',size:11},padding:10}},
-        tooltip:{callbacks:{label:c=>` ${c.label}: ${c.raw} NC`}} }, animation:{duration:700} }
-    });
-  }
-
+  if(emps.length)CHARTS['nc']=new Chart(document.getElementById('cNC'),{
+    type:'doughnut',data:{labels:emps,datasets:[{data:emps.map(e=>pm[e].nc||0),backgroundColor:CORES.slice(0,emps.length),borderWidth:3,borderColor:'#fff'}]},
+    options:{maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{family:'Outfit',size:11},padding:10}},tooltip:{callbacks:{label:c=>c.label+': '+c.raw+' NC'}}},animation:{duration:600}}
+  });
   kc('l');
-  const meses = {};
-  dados.forEach(a => {
-    if (!a.data) return;
-    const d   = new Date(a.data);
-    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    const lbl = d.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'});
-    if (!meses[key]) meses[key] = { lbl, emps:{} };
-    if (!meses[key].emps[a.parceiro]) meses[key].emps[a.parceiro] = [];
-    if (a.conformidade != null) meses[key].emps[a.parceiro].push(a.conformidade);
+  const meses={};
+  dados.forEach(a=>{
+    if(!a.data)return;
+    const d=new Date(a.data);
+    const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    const lbl=d.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'});
+    if(!meses[k])meses[k]={lbl,d:{}};
+    if(!meses[k].d[a.parceiro])meses[k].d[a.parceiro]=[];
+    if(a.conformidade!=null)meses[k].d[a.parceiro].push(a.conformidade);
   });
-  const keys = Object.keys(meses).sort();
-  if (keys.length) {
-    CHARTS['l'] = new Chart(document.getElementById('cLinha').getContext('2d'), {
-      type:'line',
-      data:{ labels:keys.map(k=>meses[k].lbl), datasets:emps.map((emp,i)=>({
-        label:emp, borderColor:CORES_EMPRESA[i%CORES_EMPRESA.length],
-        backgroundColor:CORES_EMPRESA[i%CORES_EMPRESA.length]+'18',
-        pointBackgroundColor:CORES_EMPRESA[i%CORES_EMPRESA.length],
-        borderWidth:2.5, pointRadius:4, tension:0.3, spanGaps:true,
-        data:keys.map(k=>{ const cs=meses[k].emps[emp]; return cs&&cs.length?Math.round(cs.reduce((a,b)=>a+b,0)/cs.length):null; })
-      }))},
-      options:{ responsive:true, maintainAspectRatio:false,
-        plugins:{legend:{position:'bottom',labels:{font:{family:'Outfit',size:11},padding:12}},
-        tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${c.raw}%`}}},
-        scales:{ y:{min:0,max:100,grid:{color:'#F1F5F9'},ticks:{callback:v=>v+'%',font:{family:'Outfit',size:12}}},
-                 x:{grid:{display:false},ticks:{font:{family:'Outfit',size:12}}} }, animation:{duration:700} }
-    });
-  }
+  const keys=Object.keys(meses).sort();
+  if(keys.length)CHARTS['l']=new Chart(document.getElementById('cLin'),{
+    type:'line',data:{labels:keys.map(k=>meses[k].lbl),datasets:emps.map((e,i)=>({
+      label:e,borderColor:CORES[i%CORES.length],backgroundColor:CORES[i%CORES.length]+'18',
+      pointBackgroundColor:CORES[i%CORES.length],borderWidth:2.5,pointRadius:4,tension:0.3,spanGaps:true,
+      data:keys.map(k=>{const cs=meses[k].d[e];return cs&&cs.length?Math.round(cs.reduce((a,b)=>a+b,0)/cs.length):null;})
+    }))},
+    options:{maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{family:'Outfit',size:11},padding:12}},tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.raw+'%'}}},
+      scales:{y:{min:0,max:100,grid:{color:'#F1F5F9'},ticks:{callback:v=>v+'%',font:{family:'Outfit',size:12}}},x:{grid:{display:false},ticks:{font:{family:'Outfit',size:12}}}},animation:{duration:600}}
+  });
+  const sorted=[...emps].sort((a,b)=>cm[b]-cm[a]);
+  const medals=['1o','2o','3o'];
+  document.getElementById('rankList').innerHTML=sorted.map((e,i)=>{
+    const c=cm[e],nc=pm[e].nc,cor=corConf(c);
+    return'<div class="rank-row"><div class="rank-medal">'+(i<3?medals[i]:(i+1)+'o')+'</div><div class="rank-body"><div class="rank-name">'+e+'<span class="badge '+(nc>0?'b-nc':'b-ok')+'">'+nc+' NC</span></div>'
+      +'<div style="display:flex;align-items:center;gap:8px"><div class="rank-bg" style="flex:1"><div class="rank-bar" style="width:'+c+'%;background:'+cor+'"></div></div>'
+      +'<span class="rank-pct" style="color:'+cor+'">'+c+'%</span></div></div></div>';
+  }).join('')||'<div class="empty"><div class="empty-ico">-</div><div class="empty-txt">Sem dados</div></div>';
+  kc('nota');
+  if(emps.length)CHARTS['nota']=new Chart(document.getElementById('cNota'),{
+    type:'bar',data:{labels:emps,datasets:[{data:emps.map(e=>{const ns=pm[e].notas;return ns.length?+(ns.reduce((a,b)=>a+b,0)/ns.length).toFixed(1):0;}),
+      backgroundColor:CORES.slice(0,emps.length).map(c=>c+'BB'),borderColor:CORES.slice(0,emps.length),borderWidth:2,borderRadius:8}]},
+    options:{maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'Nota: '+c.raw+'/10'}}},
+      scales:{y:{min:0,max:10,grid:{color:'#F1F5F9'},ticks:{font:{family:'Outfit',size:12}}},x:{grid:{display:false},ticks:{font:{family:'Outfit',size:12}}}},animation:{duration:600}}
+  });
 
-  if (dashLoading) dashLoading.style.display = 'none';
-}
-
-// ═══════════════════════════════════════════════════════
-// 9. REGISTROS (+ exportação CSV)
-// ═══════════════════════════════════════════════════════
-function renderRegistros() {
-  const dados = [...AUDITORIAS].sort((a,b)=>{ const da=new Date(a.data||0),db2=new Date(b.data||0); return db2-da; });
-  document.getElementById('cntReg').textContent = dados.length + ' registros';
-  const podeExcluir = NIVEL_ATUAL === 'admin';
-
-  document.getElementById('tbodyReg').innerHTML = dados.length ? dados.map(a => {
-    const isNC = a.naoConformidade;
-    const n = a.nota != null ? +a.nota : null;
-    const nc = n!=null?(n>=8?'#16A34A':n>=6?'#D97706':'#DC2626'):'#64748B';
-    const conf = a.conformidade != null ? a.conformidade : '—';
-    const corConf2 = typeof conf==='number' ? corConf(conf) : '#64748B';
-    const botaoExcluir = podeExcluir
-      ? `<button class="btn-icon del" onclick="event.stopPropagation(); excluirAuditoria('${a.id}')" title="Excluir">🗑</button>`
-      : '';
-    return `<tr onclick="abrirDetalheAuditoria('${a.id}')" style="cursor:pointer">
-      <td>${a.data || '—'}</td>
-      <td>${escapeHtml(a.unidadeNome || '—')}</td>
-      <td><strong>${escapeHtml(a.parceiro || '—')}</strong></td>
-      <td>${escapeHtml(a.numeroAPR || '—')}</td>
-      <td>${escapeHtml(a.local || '—')}</td>
-      <td>${escapeHtml(a.tecnico?.nome || '—')}</td>
-      <td><span style="font-weight:800;color:${nc}">${n!=null?n+'/10':'—'}</span></td>
-      <td><span style="font-weight:700;color:${corConf2}">${typeof conf==='number'?conf+'%':'—'}</span></td>
-      <td><span class="badge ${isNC?'b-nc':'b-ok'}">${isNC?'⚠ NC':'✓ OK'}</span></td>
-      <td>${botaoExcluir}</td>
-    </tr>`;
-  }).join('') : `<tr><td colspan="10"><div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Nenhuma auditoria registrada ainda</div></div></td></tr>`;
-}
-
-async function excluirAuditoria(id) {
-  if (!confirm('Excluir esta auditoria? Essa ação não pode ser desfeita.')) return;
-  try {
-    await db.collection('auditorias').doc(id).delete();
-    showToast('Auditoria excluída com sucesso!', 'success');
-    await carregarAuditorias();
-  } catch(e) {
-    showToast(mensagemErroAmigavel(e), 'error');
-  }
-}
-
-/** Abre um modal somente leitura com todos os detalhes da auditoria:
- *  dados gerais, todas as respostas (com seção e pergunta) e comentários. */
-function abrirDetalheAuditoria(id) {
-  const a = AUDITORIAS.find(x => x.id === id);
-  if (!a) return;
-
-  const respostas = a.respostas || {};
-  const comentarios = a.comentariosPerguntas || {};
-  const idsRespondidos = Object.keys(respostas);
-
-  // Mapa de id -> pergunta, juntando todas as seções atuais — usado só para
-  // recuperar o texto/peso/tipo originais quando a pergunta ainda existir.
-  // A fonte de verdade da resposta em si é sempre o que foi salvo na própria
-  // auditoria (campo "respostas"), nunca o estado atual de PERGUNTAS — assim
-  // a auditoria continua mostrando tudo corretamente mesmo que a pergunta
-  // tenha sido editada, movida de seção ou removida depois.
-  const mapaPerguntasAtuais = {};
-  Object.values(PERGUNTAS).flat().forEach(p => { mapaPerguntasAtuais[p.id] = p; });
-
-  let blocosHtml = '';
-
-  if (idsRespondidos.length) {
-    // Agrupa as respostas pela seção da pergunta correspondente HOJE.
-    // Perguntas cuja seção não existe mais caem num grupo "Outras respostas".
-    const grupos = {}; // secaoId -> [{id, texto, tipo, invertida, resp, coment}]
-    const OUTRAS = '__outras__';
-
-    idsRespondidos.forEach(qId => {
-      const pAtual = mapaPerguntasAtuais[qId];
-      let secaoId = OUTRAS;
-      if (pAtual) {
-        secaoId = Object.keys(PERGUNTAS).find(sId => (PERGUNTAS[sId] || []).some(p => p.id === qId)) || OUTRAS;
+  // Perguntas com mais Nao Conformidades: conta, entre as auditorias filtradas,
+  // quantas vezes cada pergunta Sim/Nao foi respondida fora do padrao esperado.
+  const ncPorPergunta={};
+  dados.forEach(a=>{
+    const respostas=a.respostas||{};
+    PERGUNTAS.forEach(p=>{
+      if(p.tipo==='nota')return;
+      const resp=respostas[p.id];
+      if(resp===undefined)return;
+      const ok=ehInversa(p)?resp==='Nao':resp==='Sim';
+      if(!ok){
+        if(!ncPorPergunta[p.id])ncPorPergunta[p.id]={texto:p.texto,secao:p.secao,count:0};
+        ncPorPergunta[p.id].count++;
       }
-      if (!grupos[secaoId]) grupos[secaoId] = [];
-      grupos[secaoId].push({
-        id: qId,
-        texto: pAtual ? pAtual.texto : `Pergunta removida (id: ${qId})`,
-        tipo: pAtual ? pAtual.tipo : (typeof respostas[qId] === 'number' ? 'nota' : 'sn'),
-        invertida: pAtual ? !!pAtual.invertida : false,
-        resp: respostas[qId],
-        coment: comentarios[qId],
-      });
     });
-
-    // Renderiza primeiro na ordem das seções atuais, depois "Outras respostas".
-    const ordemComOutras = [...ORDEM_SECOES, OUTRAS];
-    blocosHtml = ordemComOutras.map(secaoId => {
-      const itens = grupos[secaoId];
-      if (!itens || !itens.length) return '';
-      const nomeSecao = secaoId === OUTRAS ? 'Outras respostas' : (SECAO_NOMES[secaoId] || secaoId);
-
-      const linhas = itens.map(p => {
-        const corResp = p.tipo === 'nota'
-          ? 'var(--slate700)'
-          : (String(p.resp) === (p.invertida ? 'Não' : 'Sim') ? 'var(--g700)' : 'var(--red)');
-        return `<div class="detalhe-pergunta">
-          <div class="detalhe-pergunta-texto">${escapeHtml(p.texto)}</div>
-          <div class="detalhe-pergunta-resp" style="color:${corResp}">${escapeHtml(String(p.resp))}${p.tipo==='nota'?'/10':''}</div>
-          ${p.coment ? `<div class="detalhe-pergunta-coment">💬 ${escapeHtml(p.coment)}</div>` : ''}
-        </div>`;
-      }).join('');
-
-      return `<div class="detalhe-secao">
-        <div class="detalhe-secao-titulo">${escapeHtml(nomeSecao)}</div>
-        ${linhas}
-      </div>`;
-    }).join('');
-  }
-
-  const conf = a.conformidade != null ? a.conformidade + '%' : '—';
-  const nota = a.nota != null ? a.nota + '/10' : '—';
-
-  document.getElementById('detalheAuditoriaConteudo').innerHTML = `
-    <div class="detalhe-header-grid">
-      <div><span class="detalhe-label">Data</span><br>${a.data || '—'}</div>
-      <div><span class="detalhe-label">Unidade</span><br>${escapeHtml(a.unidadeNome || '—')}</div>
-      <div><span class="detalhe-label">Empresa Parceira</span><br>${escapeHtml(a.parceiro || '—')}</div>
-      <div><span class="detalhe-label">Número da APR</span><br>${escapeHtml(a.numeroAPR || '—')}</div>
-      <div><span class="detalhe-label">Local</span><br>${escapeHtml(a.local || '—')}</div>
-      <div><span class="detalhe-label">Técnico</span><br>${escapeHtml(a.tecnico?.nome || '—')}</div>
-      <div><span class="detalhe-label">Conformidade</span><br><strong style="color:${corConf(a.conformidade||0)}">${conf}</strong></div>
-      <div><span class="detalhe-label">Nota Geral</span><br>${nota}</div>
-      <div><span class="detalhe-label">Não Conformidade</span><br><span class="badge ${a.naoConformidade?'b-nc':'b-ok'}">${a.naoConformidade?'⚠ Sim':'✓ Não'}</span></div>
-    </div>
-    ${a.comentarios ? `<div class="detalhe-comentario-geral"><span class="detalhe-label">Comentário geral</span><br>${escapeHtml(a.comentarios)}</div>` : ''}
-    <div class="detalhe-perguntas-wrap">${blocosHtml || '<p style="color:var(--slate500);font-size:13px">Nenhuma resposta registrada.</p>'}</div>
-  `;
-
-  document.getElementById('modalDetalheAuditoria').classList.add('active');
-}
-
-function fecharDetalheAuditoria() {
-  document.getElementById('modalDetalheAuditoria').classList.remove('active');
-}
-
-function exportarRegistrosCSV() {
-  const dados = [...AUDITORIAS].sort((a,b)=>{ const da=new Date(a.data||0),db2=new Date(b.data||0); return db2-da; });
-  if (!dados.length) { showToast('Não há registros para exportar.', 'error'); return; }
-
-  setLoading('btnExportarCsv', true, 'Gerando...');
-  try {
-    const cabecalho = ['Data','Unidade','Empresa Parceira','Numero APR','Local','Nota','Conformidade (%)','Nao Conformidade','Tecnico','Comentarios'];
-    const linhas = dados.map(a => [
-      a.data || '',
-      a.unidadeNome || '',
-      a.parceiro || '',
-      a.numeroAPR || '',
-      a.local || '',
-      a.nota != null ? a.nota : '',
-      a.conformidade != null ? a.conformidade : '',
-      a.naoConformidade ? 'Sim' : 'Não',
-      a.tecnico?.nome || '',
-      a.comentarios || '',
-    ]);
-
-    const csvLinhas = [cabecalho, ...linhas].map(linha =>
-      linha.map(campo => {
-        const valor = String(campo ?? '').replace(/"/g, '""');
-        return /[",;\n]/.test(valor) ? `"${valor}"` : valor;
-      }).join(';')
-    );
-    const csvContent = '\uFEFF' + csvLinhas.join('\r\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url  = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    const dataAtual = new Date().toISOString().split('T')[0];
-    link.href = url;
-    link.download = `registros-auditoria-apr-${dataAtual}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-
-    showToast('CSV exportado com sucesso!', 'success');
-  } catch(e) {
-    showToast('Erro ao gerar o CSV: ' + e.message, 'error');
-  } finally {
-    setLoading('btnExportarCsv', false, '⬇️ Exportar CSV');
-  }
-}
-
-// ═══════════════════════════════════════════════════════
-// 10. CONFIGURAÇÕES — UNIDADES & PARCEIROS
-// ═══════════════════════════════════════════════════════
-async function renderUnidadesConfig() {
-  const snap = await db.collection('unidades').orderBy('nome').get();
-  unidades = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  document.getElementById('listaUnidades').innerHTML = unidades.length
-    ? unidades.map(u => `<div class="item-row">
-        <div class="item-label">${escapeHtml(u.nome)}</div>
-        <button class="btn-icon del" onclick="excluirUnidade('${u.id}')" title="Excluir">🗑</button>
-      </div>`).join('')
-    : '<div style="font-size:13px;color:var(--slate500);padding:8px">Nenhuma unidade cadastrada.</div>';
-
-  const sel = document.getElementById('cfgUnidadeSel');
-  sel.innerHTML = '<option value="">Selecione uma unidade...</option>';
-  unidades.forEach(u => {
-    const opt = document.createElement('option');
-    opt.value = u.id; opt.textContent = u.nome;
-    sel.appendChild(opt);
   });
-
-  await carregarUnidadesForm();
+  const rankNCQ=Object.values(ncPorPergunta).sort((a,b)=>b.count-a.count).slice(0,8);
+  kc('ncq');
+  document.getElementById('cNCQ').style.display=rankNCQ.length?'block':'none';
+  document.getElementById('ncqEmpty').style.display=rankNCQ.length?'none':'block';
+  if(rankNCQ.length)CHARTS['ncq']=new Chart(document.getElementById('cNCQ'),{
+    type:'bar',
+    data:{labels:rankNCQ.map(r=>r.texto.length>42?r.texto.slice(0,42)+'…':r.texto),
+      datasets:[{data:rankNCQ.map(r=>r.count),backgroundColor:'#DC2626CC',borderColor:'#DC2626',borderWidth:2,borderRadius:6}]},
+    options:{indexAxis:'y',maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{
+        title:c=>rankNCQ[c[0].dataIndex].texto,
+        label:c=>c.raw+' ocorrencia'+(c.raw===1?'':'s')+' — secao: '+rankNCQ[c.dataIndex].secao
+      }}},
+      scales:{x:{beginAtZero:true,ticks:{precision:0,font:{family:'Outfit',size:12}},grid:{color:'#F1F5F9'}},
+        y:{ticks:{font:{family:'Outfit',size:11}},grid:{display:false}}},
+      animation:{duration:600}}
+  });
 }
 
-async function adicionarUnidade() {
-  const nome = document.getElementById('novaUnidade').value.trim();
-  if (!nome) { showToast('Digite o nome da unidade','error'); return; }
-  if (unidades.some(u => u.nome.toLowerCase() === nome.toLowerCase())) {
-    showToast('Já existe uma unidade com esse nome.', 'error'); return;
-  }
-  await db.collection('unidades').add({ nome, criadoEm: new Date() });
-  document.getElementById('novaUnidade').value = '';
-  showToast('Unidade adicionada!','success');
-  await renderUnidadesConfig();
+// === REGISTROS ===
+function renderReg(){
+  const dados=getFilt(
+    document.getElementById('rUnid')?.value||'',
+    document.getElementById('rParc')?.value||'',
+    document.getElementById('rAudit')?.value||'',
+    '',document.getElementById('rNC')?.value||'');
+  document.getElementById('cntReg').textContent=dados.length+' registros';
+  document.getElementById('tbReg').innerHTML=dados.length?dados.map(a=>{
+    const isNC=a.naoConformidade;
+    const n=a.nota!=null?+a.nota:null;
+    const nc=n!=null?(n>=8?'#16A34A':n>=6?'#D97706':'#DC2626'):'#64748B';
+    const conf=a.conformidade!=null?a.conformidade:null;
+    const corC=conf!=null?corConf(conf):'#64748B';
+    return'<tr><td>'+(a.data||'--')+'</td><td><strong>'+(a.auditor||'--')+'</strong></td><td>'+(a.unidadeNome||'--')+'</td><td>'+(a.parceiro||'--')+'</td>'
+      +'<td>'+(a.apr||'--')+'</td><td>'+(a.local||'--')+'</td>'
+      +'<td><span style="font-weight:800;color:'+nc+'">'+(n!=null?n+'/10':'--')+'</span></td>'
+      +'<td><span style="font-weight:700;color:'+corC+'">'+(conf!=null?conf+'%':'--')+'</span></td>'
+      +'<td><span class="badge '+(isNC?'b-nc':'b-ok')+'">'+(isNC?'NC':'OK')+'</span></td>'
+      +'<td><button class="btn-icon print-btn" data-id="'+a.id+'" title="Imprimir">&#128438;</button>'
+      +(CU&&CU.perfil==='admin'?'<button class="btn-icon del reg-del" data-id="'+a.id+'" title="Excluir registro">&#128465;</button>':'')
+      +'</td></tr>';
+  }).join(''):'<tr><td colspan="10"><div class="empty"><div class="empty-ico">-</div><div class="empty-txt">Nenhum registro</div></div></td></tr>';
 }
 
-async function excluirUnidade(id) {
-  if (!confirm('Excluir esta unidade? Os parceiros vinculados também serão removidos.')) return;
-  const snap = await db.collection('unidades').doc(id).collection('parceiros').get();
-  const batch = db.batch();
-  snap.docs.forEach(d => batch.delete(d.ref));
-  batch.delete(db.collection('unidades').doc(id));
-  await batch.commit();
-  showToast('Unidade excluída','success');
-  await renderUnidadesConfig();
+async function delAuditoria(id){
+  if(!confirm('Excluir permanentemente este registro de auditoria? Esta acao nao pode ser desfeita.'))return;
+  try{
+    await db.collection('auditorias').doc(id).delete();
+    toast('Registro excluido','ok');
+    await loadAuditorias();
+  }catch(e){toast('Erro ao excluir: '+e.message,'err');}
 }
 
-async function renderParceirosConfig() {
-  const unidadeId = document.getElementById('cfgUnidadeSel').value;
-  const lista = document.getElementById('listaParceiros');
-  const addRow = document.getElementById('addParcRow');
-  if (!unidadeId) { lista.innerHTML=''; addRow.style.display='none'; return; }
-
-  const snap = await db.collection('unidades').doc(unidadeId).collection('parceiros').orderBy('nome').get();
-  const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-  lista.innerHTML = items.length
-    ? items.map(p => `<div class="item-row">
-        <div class="item-label">${escapeHtml(p.nome)}</div>
-        <button class="btn-icon del" onclick="excluirParceiro('${unidadeId}','${p.id}')" title="Excluir">🗑</button>
-      </div>`).join('')
-    : '<div style="font-size:13px;color:var(--slate500);padding:8px">Nenhum parceiro cadastrado nesta unidade.</div>';
-
-  addRow.style.display = 'flex';
+// === IMPRESSAO ===
+function openPrint(id){
+  const a=AUDITORIAS.find(x=>x.id===id);if(!a)return;
+  const conf=a.conformidade??0;const corC=corConf(conf);const isNC=a.naoConformidade;
+  let secoes='';
+  const secoesPresentesP=[...new Set(PERGUNTAS.map(p=>p.secao))];
+  const ordemSecoesP=[...SECOES.filter(s=>secoesPresentesP.includes(s)),...secoesPresentesP.filter(s=>!SECOES.includes(s))];
+  ordemSecoesP.forEach(sec=>{
+    const ps=PERGUNTAS.filter(p=>p.secao===sec);if(!ps.length)return;
+    secoes+='<div class="print-section"><div class="print-section-title">'+sec+'</div>';
+    ps.forEach(p=>{
+      const resp=a.respostas?.[p.id];
+      let txt='--',cls='';
+      if(p.tipo==='nota'){txt=resp!=null?'Nota: '+resp+'/10':'--';}
+      else if(resp!=null){
+        txt=resp;
+        const ok=ehInversa(p)?resp==='Nao':resp==='Sim';
+        cls=ok?'sim':'nao';
+      }
+      secoes+='<div class="print-q"><div class="print-q-txt"><strong>P'+p.peso+'</strong> - '+p.texto+'</div><div class="print-q-resp '+cls+'">'+txt+'</div></div>';
+    });
+    secoes+='</div>';
+  });
+  document.getElementById('printContent').innerHTML=
+    '<div class="print-header"><h1>Auditoria de Qualidade de APR</h1><div class="print-meta">'
+    +'<div class="print-meta-item"><strong>Auditor:</strong> '+(a.auditor||'--')+'</div>'
+    +'<div class="print-meta-item"><strong>Unidade:</strong> '+(a.unidadeNome||'--')+'</div>'
+    +'<div class="print-meta-item"><strong>Empresa:</strong> '+(a.parceiro||'--')+'</div>'
+    +'<div class="print-meta-item"><strong>Data:</strong> '+(a.data||'--')+'</div>'
+    +'<div class="print-meta-item"><strong>APR Nr:</strong> '+(a.apr||'--')+'</div>'
+    +'<div class="print-meta-item"><strong>Local:</strong> '+(a.local||'--')+'</div>'
+    +'</div></div>'+secoes
+    +(a.coment?'<div class="print-section"><div class="print-section-title">Comentarios Finais</div><p style="font-size:13px;color:#334155;line-height:1.6">'+a.coment+'</p></div>':'')
+    +'<div class="print-footer">'
+    +'<div class="print-sig"><div class="sig-line"></div><p>Assinatura do Auditor</p><p>'+(a.auditor||'')+'</p></div>'
+    +'<div style="text-align:center"><div class="print-conf-badge" style="background:'+corC+'22;color:'+corC+';border:3px solid '+corC+'">'+conf+'%<br><span style="font-size:12px;font-weight:600">Conformidade</span></div>'
+    +'<div style="margin-top:8px"><span class="badge '+(isNC?'b-nc':'b-ok')+'" style="font-size:13px;padding:5px 14px">'+(isNC?'Nao Conforme':'Conforme')+'</span></div></div>'
+    +'<div class="print-sig"><div class="sig-line"></div><p>Responsavel pela Auditoria</p></div></div>';
+  document.getElementById('printView').classList.add('open');
 }
 
-async function adicionarParceiro() {
-  const unidadeId = document.getElementById('cfgUnidadeSel').value;
-  const nome = document.getElementById('novoParceiro').value.trim();
-  if (!unidadeId) { showToast('Selecione uma unidade','error'); return; }
-  if (!nome) { showToast('Digite o nome do parceiro','error'); return; }
-  await db.collection('unidades').doc(unidadeId).collection('parceiros').add({ nome, criadoEm: new Date() });
-  document.getElementById('novoParceiro').value = '';
-  showToast('Parceiro adicionado!','success');
-  await renderParceirosConfig();
-  await carregarUnidadesForm();
+// === NAV ===
+async function goP(btn){
+  hideInfo();
+  const id=btn.getAttribute('data-page');
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  btn.classList.add('active');
+  document.getElementById('topbarT').textContent=PAGE_TITLES[id]||id;
+  if(id==='configuracoes')await renderUnidadesCfg();
+  if(id==='perguntas'){await loadPerguntas();renderPerguntasConfig();}
+  if(id==='usuarios'){await renderUsers();renderAuditoresConfig();}
+  if(id==='dashboard')renderDash();
+  if(id==='registros')renderReg();
 }
 
-async function excluirParceiro(unidadeId, parcId) {
-  if (!confirm('Excluir este parceiro?')) return;
-  await db.collection('unidades').doc(unidadeId).collection('parceiros').doc(parcId).delete();
-  showToast('Parceiro excluído','success');
-  await renderParceirosConfig();
+function showS(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+
+// === INFO POPOVER (botao "?" nos cards/graficos) ===
+let infoOpenBtn=null;
+function toggleInfo(btn){
+  const pop=document.getElementById('infoPop');
+  if(infoOpenBtn===btn){hideInfo();return;}
+  pop.textContent=btn.getAttribute('data-info')||'';
+  pop.style.display='block';
+  infoOpenBtn=btn;
+  const r=btn.getBoundingClientRect();
+  const popW=Math.min(280,window.innerWidth-24);
+  pop.style.maxWidth=popW+'px';
+  let left=r.left;
+  if(left+popW+12>window.innerWidth)left=window.innerWidth-popW-12;
+  if(left<12)left=12;
+  let top=r.bottom+8;
+  const popH=pop.offsetHeight||90;
+  if(top+popH+12>window.innerHeight)top=Math.max(12,r.top-popH-8);
+  pop.style.left=left+'px';
+  pop.style.top=top+'px';
+}
+function hideInfo(){
+  document.getElementById('infoPop').style.display='none';
+  infoOpenBtn=null;
+}
+document.addEventListener('click',function(e){
+  if(infoOpenBtn&&!e.target.closest('.info-pop')&&!e.target.closest('.info-btn'))hideInfo();
+});
+window.addEventListener('resize',hideInfo);
+window.addEventListener('scroll',hideInfo,true);
+
+let toastT;
+function toast(msg,type=''){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.className='toast show'+(type==='ok'?' ok':type==='err'?' err':'');
+  clearTimeout(toastT);toastT=setTimeout(()=>{el.className='toast';},3500);
 }
 
-// ═══════════════════════════════════════════════════════
-// 11. NAVEGAÇÃO
-// ═══════════════════════════════════════════════════════
-function irParaPaginaInicial() {
-  // Sempre volta para "Nova Auditoria" no login — é a única página garantida
-  // em todos os níveis. Evita que a tela fique "presa" numa página que o
-  // usuário anterior tinha aberto (ex: Configurações) mas que este nível não acessa.
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  const btnFormulario = document.querySelector('.nav-btn[onclick*="formulario"]');
-  goPage('formulario', btnFormulario);
-}
-
-async function goPage(id, btn) {
-  const paginasPermitidas = NIVEIS_PAGINAS[NIVEL_ATUAL] || NIVEIS_PAGINAS.tecnico;
-  if (!paginasPermitidas.includes(id)) {
-    showToast('Você não tem permissão para acessar esta página.', 'error');
-    return;
-  }
-
-  document.querySelectorAll('.page-content').forEach(p=>p.style.display='none');
-  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('page-'+id).style.display = 'block';
-  if(btn) btn.classList.add('active');
-  document.getElementById('topbarTitle').textContent = PAGE_TITLES[id]||id;
-
-  if (id === 'config') {
-    await renderUnidadesConfig();
-    await renderParceirosConfig();
-  }
-  if (id === 'usuarios')   await renderUsuariosConfig();
-  if (id === 'perguntas')  renderSelectSecoes();
-  if (id === 'dashboard')  renderDash();
-  if (id === 'registros')  renderRegistros();
-}
-
-function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-}
-
-const SIDEBAR_COLLAPSED_KEY = 'aprSidebarCollapsed';
-
-/** Recolhe/expande a sidebar no desktop, deixando mais espaço de tela
- *  para o conteúdo. A preferência é lembrada entre sessões. */
-function toggleSidebar() {
-  const sidebar = document.getElementById('sidebar');
-  const main = document.getElementById('mainContent');
-  const collapsed = sidebar.classList.toggle('collapsed');
-  main.classList.toggle('sidebar-collapsed', collapsed);
-  localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0');
-}
-
-function aplicarPreferenciaSidebar() {
-  const collapsed = localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1';
-  if (collapsed) {
-    document.getElementById('sidebar').classList.add('collapsed');
-    document.getElementById('mainContent').classList.add('sidebar-collapsed');
-  }
-}
-
-// ═══════════════════════════════════════════════════════
-// 12. UI HELPERS (toast, loading, validação, segurança)
-// ═══════════════════════════════════════════════════════
-let toastTimer;
-function showToast(msg, type='') {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.className = 'toast show ' + type;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(()=>{ t.className='toast'; }, 3500);
-}
-
-function setLoading(btnId, loading, textoNormal) {
-  const btn = document.getElementById(btnId);
-  if (!btn) return;
-  if (loading) {
-    btn.dataset.textoOriginal = btn.dataset.textoOriginal || btn.textContent;
-    btn.disabled = true;
-    btn.classList.add('loading');
-    btn.textContent = '⏳ ' + (textoNormal || 'Carregando...');
-  } else {
-    btn.disabled = false;
-    btn.classList.remove('loading');
-    btn.textContent = textoNormal || btn.dataset.textoOriginal || btn.textContent;
-  }
-}
-
-function validarEmail(email) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-function escapeHtml(str) {
-  if (str == null) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
-function mensagemErroAmigavel(e) {
-  const code = e?.code || '';
-  const mapa = {
-    'auth/invalid-email':        'E-mail inválido.',
-    'auth/user-not-found':       'E-mail ou senha incorretos.',
-    'auth/wrong-password':       'E-mail ou senha incorretos.',
-    'auth/invalid-credential':   'E-mail ou senha incorretos.',
-    'auth/too-many-requests':    'Muitas tentativas. Aguarde um momento e tente novamente.',
-    'auth/email-already-in-use': 'Este e-mail já está cadastrado.',
-    'auth/weak-password':        'A senha é muito fraca. Use no mínimo 6 caracteres.',
-    'auth/network-request-failed': 'Falha de conexão. Verifique sua internet e tente novamente.',
-    'auth/requires-recent-login': 'Por segurança, faça login novamente antes de trocar a senha.',
-    'permission-denied':         'Você não tem permissão para realizar esta ação.',
-    'unavailable':                'Servidor indisponível no momento. Verifique sua conexão e tente novamente.',
-  };
-  if (mapa[code]) return mapa[code];
-  if (!navigator.onLine) return 'Você está sem conexão com a internet.';
-  return 'Ocorreu um erro inesperado. Tente novamente em alguns instantes.';
-}
-
-// ═══════════════════════════════════════════════════════
-// 13. PWA — Service Worker + sincronização offline
-// ═══════════════════════════════════════════════════════
-function registrarServiceWorker() {
-  if (!('serviceWorker' in navigator)) return;
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('service-worker.js').then(registro => {
-      // Checa ativamente se existe uma versão mais nova do service worker
-      // assim que a página carrega — não espera o navegador decidir checar por conta própria.
-      registro.update().catch(() => {});
-
-      // Quando uma versão nova é instalada e fica pronta, recarrega a página
-      // automaticamente para garantir que o app.js/index.html/style.css mais
-      // recentes entrem em uso imediatamente, sem depender do usuário saber
-      // que precisa atualizar manualmente.
-      registro.addEventListener('updatefound', () => {
-        const novoWorker = registro.installing;
-        if (!novoWorker) return;
-        novoWorker.addEventListener('statechange', () => {
-          if (novoWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            novoWorker.postMessage({ tipo: 'ATIVAR_AGORA' });
+// === SERVICE WORKER (instalacao/uso offline do app shell) ===
+// Registra o service-worker.js para permitir "Adicionar a tela inicial" e
+// abertura rapida/offline da interface (o Firebase continua sempre buscando
+// dados da rede normalmente - o SW so cacheia HTML/CSS/JS/icones).
+function registrarServiceWorker(){
+  if(!('serviceWorker' in navigator))return;
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('./service-worker.js').then(registro=>{
+      registro.addEventListener('updatefound',()=>{
+        const novoWorker=registro.installing;
+        if(!novoWorker)return;
+        novoWorker.addEventListener('statechange',()=>{
+          if(novoWorker.state==='installed'&&navigator.serviceWorker.controller){
+            toast('Nova versao disponivel. Atualize a pagina para aplicar.','');
           }
         });
       });
-    }).catch(err => {
-      console.warn('Falha ao registrar o Service Worker:', err);
-    });
-
-    // Quando o novo service worker assume o controle da página, recarrega
-    // uma única vez para puxar a versão mais recente de todos os arquivos.
-    let jaRecarregou = false;
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (jaRecarregou) return;
-      jaRecarregou = true;
-      window.location.reload();
-    });
+    }).catch(e=>console.warn('Falha ao registrar service worker:',e));
   });
 }
-
-/** Botão manual de "Forçar atualização" — útil quando o usuário percebe
- *  que uma função nova não está disponível e não quer esperar o navegador
- *  detectar a atualização por conta própria. */
-async function forcarAtualizacaoApp() {
-  if (!('serviceWorker' in navigator)) { window.location.reload(); return; }
-  try {
-    const registros = await navigator.serviceWorker.getRegistrations();
-    for (const registro of registros) await registro.unregister();
-    const nomesCache = await caches.keys();
-    await Promise.all(nomesCache.map(nome => caches.delete(nome)));
-  } catch(e) { /* segue para o reload mesmo se algo falhar */ }
-  window.location.reload(true);
-}
-
-function monitorarConexao() {
-  window.addEventListener('online', () => {
-    showToast('Conexão restabelecida. Sincronizando dados...', 'success');
-    sincronizarFilaOffline();
-  });
-  window.addEventListener('offline', () => {
-    showToast('Você está offline. As auditorias serão salvas no dispositivo.', 'error');
-  });
-}
-
-function getFilaOffline() {
-  try { return JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]'); }
-  catch(e) { return []; }
-}
-
-function salvarFilaOffline(fila) {
-  localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(fila));
-}
-
-function salvarNaFilaOffline(doc) {
-  const fila = getFilaOffline();
-  fila.push({ ...doc, _criadoEmLocal: new Date().toISOString() });
-  salvarFilaOffline(fila);
-}
-
-async function sincronizarFilaOffline() {
-  if (!navigator.onLine || !db) return;
-  const fila = getFilaOffline();
-  if (!fila.length) return;
-
-  const restantes = [];
-  let enviados = 0;
-  for (const item of fila) {
-    try {
-      const { _criadoEmLocal, ...doc } = item;
-      await db.collection('auditorias').add({ ...doc, criadoEm: firebase.firestore.FieldValue.serverTimestamp() });
-      enviados++;
-    } catch(e) {
-      restantes.push(item);
-    }
-  }
-  salvarFilaOffline(restantes);
-
-  if (enviados > 0) {
-    showToast(`${enviados} auditoria(s) pendente(s) sincronizada(s) com sucesso! ✅`, 'success');
-    await carregarAuditorias();
-  }
-}
+registrarServiceWorker();
