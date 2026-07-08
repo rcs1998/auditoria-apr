@@ -1321,7 +1321,11 @@ function openPrint(id){
       const resp=a.respostas?.[p.id];
       let txt='--',cls='';
       if(p.tipo==='nota'){txt=resp!=null?'Nota: '+resp+'/10':'--';}
-      else{txt=resp||'--';cls=resp==='Sim'?'sim':resp==='Nao'?'nao':'';}
+      else if(resp!=null){
+        txt=resp;
+        const ok=ehInversa(p)?resp==='Nao':resp==='Sim';
+        cls=ok?'sim':'nao';
+      }
       secoes+='<div class="print-q"><div class="print-q-txt"><strong>P'+p.peso+'</strong> - '+p.texto+'</div><div class="print-q-resp '+cls+'">'+txt+'</div></div>';
     });
     secoes+='</div>';
