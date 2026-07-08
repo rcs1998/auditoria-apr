@@ -27,7 +27,7 @@
 body{font-family:var(--f);background:var(--bg);color:var(--s900);min-height:100vh}
 .screen{display:none;min-height:100vh}
 .screen.active{display:flex}
-#s-setup,#s-login{align-items:center;justify-content:center;padding:40px 20px;background:var(--g900)}
+#s-login{align-items:center;justify-content:center;padding:40px 20px;background:var(--g900)}
 .auth-box{background:var(--wh);border-radius:20px;padding:44px;width:100%;max-width:460px;box-shadow:0 24px 64px rgba(0,0,0,.3)}
 .auth-logo{text-align:center;margin-bottom:28px}
 .auth-logo .icon{width:52px;height:52px;background:var(--g700);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:25px;margin:0 auto 12px}
@@ -96,7 +96,7 @@ body{font-family:var(--f);background:var(--bg);color:var(--s900);min-height:100v
 .kpi:nth-child(3)::before{background:var(--red)}
 .kpi:nth-child(4)::before{background:var(--yel)}
 .kpi-ico{font-size:20px;margin-bottom:7px}
-.kpi-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--s500)}
+.kpi-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--s500);display:flex;align-items:center;gap:6px}
 .kpi-val{font-size:32px;font-weight:900;line-height:1;margin:5px 0 3px}
 .kpi:nth-child(1) .kpi-val{color:var(--g700)}
 .kpi:nth-child(2) .kpi-val{color:var(--blu)}
@@ -105,6 +105,12 @@ body{font-family:var(--f);background:var(--bg);color:var(--s900);min-height:100v
 .kpi-sub{font-size:12px;color:var(--s500)}
 .g2{display:grid;grid-template-columns:3fr 2fr;gap:18px;margin-bottom:18px}
 .geq{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
+.chart-wrap{position:relative;width:100%}
+.chart-wrap canvas{width:100%!important;height:100%!important}
+.info-btn{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:var(--s100);color:var(--s500);border:1.5px solid var(--s300);font-family:var(--f);font-size:11px;font-weight:800;cursor:pointer;flex-shrink:0;line-height:1;padding:0;transition:all .15s}
+.info-btn:hover{background:var(--g100);color:var(--g700);border-color:var(--g500)}
+.info-pop{position:fixed;z-index:500;max-width:280px;background:var(--s900);color:#fff;padding:12px 14px;border-radius:var(--rsm);font-size:12.5px;line-height:1.55;box-shadow:var(--sh);display:none}
+.info-pop b{color:var(--g100)}
 .tbl-wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:13px}
 thead tr{background:var(--g50)}
@@ -223,25 +229,6 @@ code{font-family:monospace;font-size:12px;background:var(--g50);color:var(--g700
 </style>
 </head>
 <body>
-<!-- SETUP -->
-<div id="s-setup" class="screen" style="align-items:center;justify-content:center;padding:40px 20px;background:var(--g900)">
-<div class="auth-box">
-  <div class="auth-logo"><div class="icon">&#128293;</div><h1>Configurar Firebase</h1><p>Necessario apenas uma vez</p></div>
-  <div class="step"><div class="step-n">1</div><div>Acesse <strong>console.firebase.google.com</strong> e crie um projeto</div></div>
-  <div class="step"><div class="step-n">2</div><div>Adicionar app &rarr; Web &rarr; copie o <code>firebaseConfig</code></div></div>
-  <div class="step"><div class="step-n">3</div><div>Authentication &rarr; Provedores &rarr; ative <strong>E-mail/senha</strong></div></div>
-  <div class="step"><div class="step-n">4</div><div>Firestore Database &rarr; criar em <strong>modo de teste</strong></div></div>
-  <div style="margin-top:20px">
-    <div class="ff"><label>API Key</label><input id="fbKey" placeholder="AIzaSy..."/></div>
-    <div class="ff"><label>Auth Domain</label><input id="fbAuth" placeholder="app.firebaseapp.com"/></div>
-    <div class="ff"><label>Project ID</label><input id="fbProj" placeholder="meu-projeto-123"/></div>
-    <div class="ff"><label>App ID</label><input id="fbApp" placeholder="1:123:web:abc"/></div>
-    <button class="btn btn-p" onclick="salvarFB()">Conectar e Comecar</button>
-    <button class="btn btn-s" onclick="irForm()">Ja configurei - Ir ao Formulario</button>
-  </div>
-</div>
-</div>
-
 <!-- LOGIN -->
 <div id="s-login" class="screen" style="align-items:center;justify-content:center;padding:40px 20px;background:var(--g900)">
 <div class="auth-box">
@@ -333,19 +320,24 @@ code{font-family:monospace;font-size:12px;background:var(--g50);color:var(--g700
       <button class="btn-ref" onclick="loadAuditorias()">Atualizar</button>
     </div>
     <div class="kpi-grid">
-      <div class="kpi"><div class="kpi-ico">&#9989;</div><div class="kpi-lbl">Conformidade Geral</div><div class="kpi-val" id="kConf">--</div><div class="kpi-sub">media ponderada</div></div>
-      <div class="kpi"><div class="kpi-ico">&#128203;</div><div class="kpi-lbl">Auditorias</div><div class="kpi-val" id="kAud">--</div><div class="kpi-sub">no periodo</div></div>
-      <div class="kpi"><div class="kpi-ico">&#9888;</div><div class="kpi-lbl">Nao Conformidades</div><div class="kpi-val" id="kNC">--</div><div class="kpi-sub">identificadas</div></div>
-      <div class="kpi"><div class="kpi-ico">&#127942;</div><div class="kpi-lbl">Melhor Empresa</div><div class="kpi-val" id="kMel" style="font-size:16px;padding-top:8px">--</div><div class="kpi-sub" id="kMelSub"></div></div>
+      <div class="kpi"><div class="kpi-ico">&#9989;</div><div class="kpi-lbl">Conformidade Geral<button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Média da % de conformidade entre as empresas do filtro atual. Primeiro calculamos a conformidade média de cada empresa (soma dos pesos das perguntas Sim/Não respondidas corretamente, dividida pelo peso total possível); depois tiramos a média entre as empresas. Não é a média simples de todas as auditorias juntas.">?</button></div><div class="kpi-val" id="kConf">--</div><div class="kpi-sub">media ponderada</div></div>
+      <div class="kpi"><div class="kpi-ico">&#128203;</div><div class="kpi-lbl">Auditorias<button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Quantidade de auditorias enviadas que atendem aos filtros selecionados acima (unidade, empresa, auditor e período).">?</button></div><div class="kpi-val" id="kAud">--</div><div class="kpi-sub">no periodo</div></div>
+      <div class="kpi"><div class="kpi-ico">&#9888;</div><div class="kpi-lbl">Nao Conformidades<button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Número de auditorias marcadas como Não Conforme dentro do filtro atual. Uma auditoria vira NC quando qualquer pergunta do tipo Sim/Não é respondida fora do padrão de conformidade esperado, em qualquer seção — não apenas na seção Desvios.">?</button></div><div class="kpi-val" id="kNC">--</div><div class="kpi-sub">identificadas</div></div>
+      <div class="kpi"><div class="kpi-ico">&#127942;</div><div class="kpi-lbl">Melhor Empresa<button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Empresa com a maior % média de conformidade entre as que aparecem no filtro atual.">?</button></div><div class="kpi-val" id="kMel" style="font-size:16px;padding-top:8px">--</div><div class="kpi-sub" id="kMelSub"></div></div>
     </div>
     <div class="g2">
-      <div class="card"><div class="card-head"><span class="card-title">% Conformidade por Empresa</span><span class="ctag">Meta 90%</span></div><canvas id="cBar" height="220"></canvas></div>
-      <div class="card"><div class="card-head"><span class="card-title">Nao Conformidades</span></div><canvas id="cNC" height="220"></canvas></div>
+      <div class="card"><div class="card-head"><span class="card-title">% Conformidade por Empresa</span><button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Cada barra mostra a % média de conformidade da empresa nas auditorias filtradas (média das conformidades de cada auditoria dessa empresa). A linha de meta 90% é apenas uma referência visual e não afeta o cálculo.">?</button><span class="ctag">Meta 90%</span></div><div class="chart-wrap" style="height:260px"><canvas id="cBar"></canvas></div></div>
+      <div class="card"><div class="card-head"><span class="card-title">Nao Conformidades</span><button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Distribuição da quantidade de auditorias marcadas como Não Conforme (qualquer pergunta fora do padrão de conformidade, em qualquer seção) entre as empresas do filtro atual.">?</button></div><div class="chart-wrap" style="height:260px"><canvas id="cNC"></canvas></div></div>
     </div>
-    <div class="card"><div class="card-head"><span class="card-title">Evolucao Mensal</span></div><canvas id="cLin" height="260"></canvas></div>
+    <div class="card"><div class="card-head"><span class="card-title">Evolucao Mensal</span><button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Média mensal da % de conformidade de cada empresa, agrupada pelo mês da data da auditoria (não pela data de envio). Um mês sem auditoria de uma empresa aparece como uma quebra na linha dessa empresa.">?</button></div><div class="chart-wrap" style="height:300px"><canvas id="cLin"></canvas></div></div>
     <div class="geq">
-      <div class="card"><div class="card-head"><span class="card-title">Ranking de Empresas</span></div><div class="rank-list" id="rankList"></div></div>
-      <div class="card"><div class="card-head"><span class="card-title">Nota Media por Empresa</span></div><canvas id="cNota" height="240"></canvas></div>
+      <div class="card"><div class="card-head"><span class="card-title">Ranking de Empresas</span><button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Empresas ordenadas da maior para a menor % média de conformidade, dentro do filtro atual. O selo ao lado do nome mostra quantas Não Conformidades essa empresa teve no período filtrado.">?</button></div><div class="rank-list" id="rankList"></div></div>
+      <div class="card"><div class="card-head"><span class="card-title">Nota Media por Empresa</span><button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Média das respostas da pergunta do tipo 'Nota (0 a 10)' (configurada na seção Qualidade da APR), calculada por empresa dentro do filtro atual.">?</button></div><div class="chart-wrap" style="height:280px"><canvas id="cNota"></canvas></div></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span class="card-title">Perguntas com Mais Nao Conformidades</span><button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Mostra, entre as auditorias do filtro atual, quais perguntas mais vezes foram respondidas fora do padrão esperado de conformidade — ou seja, os pontos que mais geram não conformidade. Cada barra é uma pergunta; o número é quantas vezes ela falhou nesse conjunto de auditorias.">?</button></div>
+      <div class="chart-wrap" style="height:320px"><canvas id="cNCQ"></canvas></div>
+      <div class="empty" id="ncqEmpty" style="display:none"><div class="empty-ico">-</div><div class="empty-txt">Nenhuma nao conformidade no filtro atual</div></div>
     </div>
   </div>
 
@@ -375,7 +367,7 @@ code{font-family:monospace;font-size:12px;background:var(--g50);color:var(--g700
   <!-- PERGUNTAS -->
   <div class="page" id="page-perguntas">
     <div class="card" style="max-width:820px">
-      <div class="card-head"><span class="card-title">Gerenciar Perguntas</span><button class="btn btn-p btn-sm" onclick="openModalPerg(null)">+ Nova</button></div>
+      <div class="card-head"><span class="card-title">Gerenciar Perguntas</span><button class="btn btn-s btn-sm" onclick="corrigirAcentuacaoPadrao()">Corrigir acentuacao padrao</button><button class="btn btn-p btn-sm" onclick="openModalPerg(null)">+ Nova</button></div>
       <div class="tabs">
         <button class="tab active" onclick="filtSec('',this)">Todas</button>
         <button class="tab" onclick="filtSec('Identificacao da APR',this)">Identificacao</button>
@@ -509,6 +501,7 @@ code{font-family:monospace;font-size:12px;background:var(--g50);color:var(--g700
 </div>
 
 <div class="toast" id="toast"></div>
+<div class="info-pop" id="infoPop"></div>
 <script>
 // === GLOBALS ===
 let db,auth,CU=null,unsubAuditores=null;
@@ -518,8 +511,18 @@ const CORES=['#1B6B2E','#16A34A','#D97706','#1D4ED8','#DC2626','#7C3AED','#0891B
 const SECOES=['Identificacao da APR','Identificacao de Riscos','Medidas de Controle','Qualidade da APR','Evidencias','Desvios'];
 const PAGE_TITLES={dashboard:'Dashboard',registros:'Registros',perguntas:'Perguntas',usuarios:'Usuarios',configuracoes:'Configuracoes'};
 
+// Le o campo "inversa" de forma robusta: aceita true (boolean) ou 'true' (string),
+// qualquer outra coisa (false, undefined, null, '', 'false') conta como nao-inversa.
+// Isso evita que uma pergunta marcada como inversa deixe de funcionar por causa
+// do tipo de dado gravado no Firestore.
+function ehInversa(p){return p&&(p.inversa===true||p.inversa==='true');}
+
 // === FIREBASE (config fixa — todo usuario usa o mesmo projeto,
 // sem precisar configurar nada no primeiro acesso) ===
+// IMPORTANTE: como a leitura de "auditores", "unidades" e "unidades/{id}/parceiros"
+// precisa funcionar no formulario PUBLICO (sem login), as regras de seguranca do
+// Firestore devem permitir "read" publico nessas colecoes e exigir autenticacao
+// apenas para "write" (e para toda operacao em "auditorias" e "usuarios").
 const FIREBASE_CONFIG={
   apiKey:"AIzaSyC5Kz7Hns8sHhUNKZUODAsPc_JjXI1eyBE",
   authDomain:"auditoria-apr-1.firebaseapp.com",
@@ -532,50 +535,34 @@ const FIREBASE_CONFIG={
 // === INIT ===
 window.onload=()=>{
   document.getElementById('fData').value=new Date().toISOString().split('T')[0];
+  // Event delegation for dynamically generated buttons
+  document.addEventListener('click',function(e){
+    const pb=e.target.closest('.print-btn');
+    if(pb)openPrint(pb.getAttribute('data-id'));
+    const pe=e.target.closest('.perg-edit');
+    if(pe)openModalPerg(pe.getAttribute('data-id'));
+    const pd=e.target.closest('.perg-del');
+    if(pd)delPergunta(pd.getAttribute('data-id'));
+    const rd=e.target.closest('.reg-del');
+    if(rd)delAuditoria(rd.getAttribute('data-id'));
+  });
   initFB(FIREBASE_CONFIG);
 };
-
-function salvarFB(){
-  const cfg={
-    apiKey:document.getElementById('fbKey').value.trim(),
-    authDomain:document.getElementById('fbAuth').value.trim(),
-    projectId:document.getElementById('fbProj').value.trim(),
-    appId:document.getElementById('fbApp').value.trim()
-  };
-  if(!cfg.apiKey){toast('Preencha a API Key','err');return;}
-  if(!cfg.projectId){toast('Preencha o Project ID','err');return;}
-  if(!cfg.authDomain){toast('Preencha o Auth Domain','err');return;}
-  if(!cfg.appId){toast('Preencha o App ID','err');return;}
-  toast('Conectando...','');
-  localStorage.setItem('aprFB',JSON.stringify(cfg));
-  // Reset firebase if already initialized
-  if(firebase.apps.length){
-    firebase.apps[0].delete().then(()=>initFB(cfg)).catch(()=>initFB(cfg));
-  } else {
-    initFB(cfg);
-  }
-}
 
 function initFB(cfg){
   try{
     if(!firebase.apps.length)firebase.initializeApp(cfg);
     db=firebase.firestore();
     auth=firebase.auth();
-    // Test connection
-    db.collection('_ping').limit(1).get()
-      .then(()=>{
-        toast('Firebase conectado!','ok');
-        subscribeAuditores();
-        loadUnidadesForm();
-        auth.onAuthStateChanged(async u=>{if(u)await onLogin(u);});
-        setTimeout(()=>irForm(), 800);
-      })
-      .catch(e=>{
-        toast('Erro de conexao: verifique o Project ID e as regras do Firestore','err');
-        console.error(e);
-      });
+    // Carrega auditores, unidades e perguntas imediatamente, sem depender
+    // de login, para que o formulario publico funcione para qualquer visitante.
+    subscribeAuditores();
+    loadUnidadesForm();
+    loadPerguntas();
+    auth.onAuthStateChanged(async u=>{if(u)await onLogin(u);});
+    irForm();
   }catch(e){
-    toast('Erro: '+e.message,'err');
+    toast('Erro ao conectar ao Firebase: '+e.message,'err');
     console.error(e);
   }
 }
@@ -603,6 +590,9 @@ function subscribeAuditores(){
       AUDITORES.forEach(a=>{const o=document.createElement('option');o.value=a.nome;o.textContent=a.nome;el.appendChild(o);});
       el.value=v;
     });
+  },err=>{
+    console.error('Erro ao carregar auditores:',err);
+    toast('Nao foi possivel carregar os auditores. Verifique as regras do Firestore.','err');
   });
 }
 
@@ -615,29 +605,38 @@ function updateAuditorSel(){
 
 function renderAuditoresConfig(){
   const el=document.getElementById('listaAuditores');if(!el)return;
+  el.innerHTML='';
   if(!AUDITORES.length){
     el.innerHTML='<div style="font-size:13px;color:var(--s500);padding:8px">Nenhum auditor cadastrado.</div>';
     return;
   }
-  el.innerHTML=AUDITORES.map(function(a){
-    return '<div class="item-row"><div class="item-lbl">'+a.nome+'</div>'
-      +'<button class="btn-icon del" onclick="delAuditor(\'' +a.id+ '\')">&#128465;</button></div>';
-  }).join('');
+  AUDITORES.forEach(function(a){
+    const row=document.createElement('div');row.className='item-row';
+    const lbl=document.createElement('div');lbl.className='item-lbl';lbl.textContent=a.nome;
+    const btn=document.createElement('button');btn.className='btn-icon del';btn.innerHTML='&#128465;';
+    btn.title='Remover';
+    btn.addEventListener('click',function(){delAuditor(a.id);});
+    row.appendChild(lbl);row.appendChild(btn);el.appendChild(row);
+  });
 }
 
 async function addAuditor(){
   const nome=document.getElementById('nAuditor').value.trim();
   if(!nome){toast('Digite o nome','err');return;}
   if(AUDITORES.some(a=>a.nome.toLowerCase()===nome.toLowerCase())){toast('Ja cadastrado','err');return;}
-  await db.collection('auditores').add({nome,criadoEm:new Date()});
-  document.getElementById('nAuditor').value='';
-  toast('Auditor adicionado! Ja aparece no formulario.','ok');
+  try{
+    await db.collection('auditores').add({nome,criadoEm:new Date()});
+    document.getElementById('nAuditor').value='';
+    toast('Auditor adicionado! Ja aparece no formulario.','ok');
+  }catch(e){toast('Erro ao adicionar: '+e.message,'err');}
 }
 
 async function delAuditor(id){
   if(!confirm('Remover este auditor da lista?'))return;
-  await db.collection('auditores').doc(id).delete();
-  toast('Removido','ok');
+  try{
+    await db.collection('auditores').doc(id).delete();
+    toast('Removido','ok');
+  }catch(e){toast('Erro ao remover: '+e.message,'err');}
 }
 
 // === AUTH ===
@@ -652,7 +651,14 @@ async function fazerLogin(){
 
 async function onLogin(u){
   const doc=await db.collection('usuarios').doc(u.uid).get();
-  CU=doc.exists?{uid:u.uid,...doc.data()}:{uid:u.uid,email:u.email,nome:u.displayName||u.email,perfil:'gestor'};
+  CU=doc.exists?{uid:u.uid,...doc.data()}:{uid:u.uid,email:u.email,nome:u.displayName||u.email,perfil:'gestor',ativo:true};
+  if(CU.ativo===false){
+    toast('Sua conta foi desativada. Fale com um administrador.','err');
+    await auth.signOut();
+    CU=null;
+    irForm();
+    return;
+  }
   document.getElementById('uAv').textContent=(CU.nome||'?')[0].toUpperCase();
   document.getElementById('uNm').textContent=CU.nome||CU.email;
   const rb=document.getElementById('roleBadge');
@@ -682,7 +688,7 @@ async function criarUsuario(){
   try{
     const cred=await auth.createUserWithEmailAndPassword(email,senha);
     await cred.user.updateProfile({displayName:nome});
-    await db.collection('usuarios').doc(cred.user.uid).set({nome,email,perfil,criadoEm:new Date()});
+    await db.collection('usuarios').doc(cred.user.uid).set({nome,email,perfil,ativo:true,criadoEm:new Date()});
     document.getElementById('uNome').value='';
     document.getElementById('uEmail').value='';
     document.getElementById('uSenha').value='';
@@ -694,22 +700,43 @@ async function criarUsuario(){
 async function renderUsers(){
   const snap=await db.collection('usuarios').get();
   const users=snap.docs.map(d=>({id:d.id,...d.data()}));
-  document.getElementById('listaUsers').innerHTML=users.length
-    ?users.map(function(u){
-      return '<div class="item-row"><div class="u-av" style="flex-shrink:0">'+(u.nome||'?')[0].toUpperCase()+'</div>'
-        +'<div style="flex:1"><div class="item-lbl">'+(u.nome||'--')+'</div><div class="item-sub">'+u.email+'</div></div>'
-        +'<span class="badge '+(u.perfil==='admin'?'b-admin':'b-gestor')+'">'+u.perfil+'</span>'
-        +'<button class="btn-icon" onclick="openEditUser(\'' +u.id+ '\',\'' +encodeURIComponent(u.nome||'')+ '\',\'' +u.perfil+ '\')">&#9999;</button>'
-        +'</div>';
-    }).join('')
-    :'<div style="font-size:13px;color:var(--s500);padding:8px">Nenhum usuario.</div>';
+  const el=document.getElementById('listaUsers');
+  el.innerHTML='';
+  if(!users.length){el.innerHTML='<div style="font-size:13px;color:var(--s500);padding:8px">Nenhum usuario.</div>';return;}
+  users.forEach(function(u){
+    const row=document.createElement('div');row.className='item-row';
+    const av=document.createElement('div');av.className='u-av';av.style.flexShrink='0';av.textContent=(u.nome||'?')[0].toUpperCase();
+    const info=document.createElement('div');info.style.flex='1';
+    const nm=document.createElement('div');nm.className='item-lbl';nm.textContent=u.nome||'--';
+    const em=document.createElement('div');em.className='item-sub';em.textContent=u.email;
+    info.appendChild(nm);info.appendChild(em);
+    const inativo=u.ativo===false;
+    if(inativo)row.style.opacity='0.5';
+    const badge=document.createElement('span');badge.className='badge '+(u.perfil==='admin'?'b-admin':'b-gestor');badge.textContent=u.perfil+(inativo?' (inativo)':'');
+    const btnAt=document.createElement('button');btnAt.className='btn-icon';btnAt.title=inativo?'Ativar':'Inativar';
+    btnAt.innerHTML=inativo?'&#128274;':'&#128275;';
+    btnAt.addEventListener('click',function(){toggleAtivoUser(u.id,u.ativo!==false);});
+    const btn=document.createElement('button');btn.className='btn-icon';btn.innerHTML='&#9999;';
+    btn.addEventListener('click',function(){openEditUser(u.id,u.nome||'',u.perfil);});
+    row.appendChild(av);row.appendChild(info);row.appendChild(badge);row.appendChild(btnAt);row.appendChild(btn);
+    el.appendChild(row);
+  });
 }
 
-function openEditUser(id,nomeEnc,perfil){
+function openEditUser(id,nome,perfil){
   document.getElementById('muId').value=id;
-  document.getElementById('muNome').value=decodeURIComponent(nomeEnc);
+  document.getElementById('muNome').value=nome;
   document.getElementById('muPerfil').value=perfil;
   openModal('modalUser');
+}
+
+async function toggleAtivoUser(id,ativoAtual){
+  if(id===CU?.uid){toast('Voce nao pode inativar sua propria conta','err');return;}
+  try{
+    await db.collection('usuarios').doc(id).update({ativo:!ativoAtual});
+    toast(ativoAtual?'Usuario inativado':'Usuario ativado','ok');
+    await renderUsers();
+  }catch(e){toast('Erro: '+e.message,'err');}
 }
 
 async function salvarUser(){
@@ -745,9 +772,15 @@ async function loadParceiros(){
 
 async function renderUnidadesCfg(){
   await loadUnidadesForm();
-  document.getElementById('listaUnid').innerHTML=UNIDADES.length
-    ?UNIDADES.map(function(u){return '<div class="item-row"><div class="item-lbl">'+u.nome+'</div><button class="btn-icon del" onclick="delUnidade(\''+u.id+'\')">&#128465;</button></div>';}).join('')
-    :'<div style="font-size:13px;color:var(--s500)">Nenhuma unidade.</div>';
+  const listaUnidEl=document.getElementById('listaUnid');listaUnidEl.innerHTML='';
+  if(!UNIDADES.length){listaUnidEl.innerHTML='<div style="font-size:13px;color:var(--s500)">Nenhuma unidade.</div>';}
+  else{UNIDADES.forEach(function(u){
+    const row=document.createElement('div');row.className='item-row';
+    const lbl=document.createElement('div');lbl.className='item-lbl';lbl.textContent=u.nome;
+    const btn=document.createElement('button');btn.className='btn-icon del';btn.innerHTML='&#128465;';
+    btn.addEventListener('click',function(){delUnidade(u.id);});
+    row.appendChild(lbl);row.appendChild(btn);listaUnidEl.appendChild(row);
+  });}
   const sel=document.getElementById('cfgUnidSel');
   sel.innerHTML='<option value="">Selecione...</option>';
   UNIDADES.forEach(u=>{const o=document.createElement('option');o.value=u.id;o.textContent=u.nome;sel.appendChild(o);});
@@ -756,6 +789,7 @@ async function renderUnidadesCfg(){
 async function addUnidade(){
   const nome=document.getElementById('nUnid').value.trim();
   if(!nome){toast('Digite o nome','err');return;}
+  if(UNIDADES.some(u=>u.nome.toLowerCase()===nome.toLowerCase())){toast('Ja cadastrada','err');return;}
   await db.collection('unidades').add({nome,criadoEm:new Date()});
   document.getElementById('nUnid').value='';toast('Unidade adicionada!','ok');
   await renderUnidadesCfg();
@@ -775,9 +809,17 @@ async function renderParcCfg(){
   const row=document.getElementById('addParcRow');
   if(!uid){lista.innerHTML='';row.style.display='none';return;}
   const snap=await db.collection('unidades').doc(uid).collection('parceiros').orderBy('nome').get();
-  lista.innerHTML=snap.docs.length
-    ?snap.docs.map(d=>'<div class="item-row"><div class="item-lbl">'+d.data().nome+'</div><button class="btn-icon del" onclick="delParceiro('"+uid+"','"+d.id+"')">&#128465;</button></div>').join('')
-    :'<div style="font-size:13px;color:var(--s500)">Nenhum parceiro.</div>';
+  lista.innerHTML='';
+  if(!snap.docs.length){lista.innerHTML='<div style="font-size:13px;color:var(--s500)">Nenhum parceiro.</div>';}
+  else{snap.docs.forEach(function(d){
+    const pnome=d.data().nome,pid=d.id,puid=uid;
+    const prow=document.createElement('div');prow.className='item-row';
+    const plbl=document.createElement('div');plbl.className='item-lbl';plbl.textContent=pnome;
+    const pbtn=document.createElement('button');pbtn.className='btn-icon del';pbtn.innerHTML='&#128465;';
+    pbtn.addEventListener('click',function(){delParceiro(puid,pid);});
+    prow.appendChild(plbl);prow.appendChild(pbtn);lista.appendChild(prow);
+  });}
+
   row.style.display='flex';
 }
 
@@ -785,9 +827,14 @@ async function addParceiro(){
   const uid=document.getElementById('cfgUnidSel').value;
   const nome=document.getElementById('nParc').value.trim();
   if(!uid||!nome){toast('Selecione a unidade e digite o nome','err');return;}
-  await db.collection('unidades').doc(uid).collection('parceiros').add({nome,criadoEm:new Date()});
-  document.getElementById('nParc').value='';toast('Parceiro adicionado!','ok');
-  await renderParcCfg();await loadUnidadesForm();
+  try{
+    const snap=await db.collection('unidades').doc(uid).collection('parceiros').get();
+    const jaExiste=snap.docs.some(d=>(d.data().nome||'').toLowerCase()===nome.toLowerCase());
+    if(jaExiste){toast('Este parceiro ja esta cadastrado nesta unidade','err');return;}
+    await db.collection('unidades').doc(uid).collection('parceiros').add({nome,criadoEm:new Date()});
+    document.getElementById('nParc').value='';toast('Parceiro adicionado!','ok');
+    await renderParcCfg();await loadUnidadesForm();
+  }catch(e){toast('Erro: '+e.message,'err');}
 }
 
 async function delParceiro(uid,pid){
@@ -798,39 +845,98 @@ async function delParceiro(uid,pid){
 
 // === PERGUNTAS ===
 async function loadPerguntas(){
-  const snap=await db.collection('perguntas').orderBy('secao').orderBy('ordem').get();
-  PERGUNTAS=snap.docs.map(d=>({id:d.id,...d.data()}));
-  if(!PERGUNTAS.length)await seedPerguntas();
-  renderFormPerguntas();
+  try{
+    // Evitamos orderBy em dois campos (secao + ordem), que exigiria um
+    // indice composto no Firestore. Buscamos tudo e ordenamos no cliente.
+    const snap=await db.collection('perguntas').get();
+    PERGUNTAS=snap.docs.map(d=>({id:d.id,...d.data()}));
+    ordenarPerguntas();
+    // Semear as perguntas padrao exige permissao de escrita (gestor/admin).
+    // So tenta se ja houver um usuario logado com esse perfil; visitantes
+    // anonimos apenas leem o que ja estiver cadastrado.
+    if(!PERGUNTAS.length && CU){
+      try{await seedPerguntas();}
+      catch(e){console.warn('Nao foi possivel semear as perguntas padrao:',e);}
+    }
+    renderFormPerguntas();
+  }catch(e){
+    console.error('Erro ao carregar perguntas:',e);
+    toast('Nao foi possivel carregar as perguntas. Verifique as regras do Firestore.','err');
+  }
+}
+
+function ordenarPerguntas(){
+  PERGUNTAS.sort((a,b)=>{
+    const sa=SECOES.indexOf(a.secao),sb=SECOES.indexOf(b.secao);
+    if(sa!==sb)return sa-sb;
+    return (a.ordem||0)-(b.ordem||0);
+  });
 }
 
 async function seedPerguntas(){
   const defaults=[
-    {secao:'Identificacao da APR',ordem:1,texto:'APR possui identificacao da atividade?',tipo:'simnao',peso:1,inversa:false},
-    {secao:'Identificacao da APR',ordem:2,texto:'Data esta preenchida na APR?',tipo:'simnao',peso:1,inversa:false},
-    {secao:'Identificacao da APR',ordem:3,texto:'Equipe esta listada?',tipo:'simnao',peso:1,inversa:false},
-    {secao:'Identificacao de Riscos',ordem:1,texto:'Riscos foram identificados?',tipo:'simnao',peso:3,inversa:false},
-    {secao:'Identificacao de Riscos',ordem:2,texto:'Os riscos sao compativeis com a atividade?',tipo:'simnao',peso:1,inversa:false},
+    {secao:'Identificacao da APR',ordem:1,texto:'A APR possui identificação da atividade?',tipo:'simnao',peso:1,inversa:false},
+    {secao:'Identificacao da APR',ordem:2,texto:'A data está preenchida na APR?',tipo:'simnao',peso:1,inversa:false},
+    {secao:'Identificacao da APR',ordem:3,texto:'A equipe está listada?',tipo:'simnao',peso:1,inversa:false},
+    {secao:'Identificacao de Riscos',ordem:1,texto:'Os riscos foram identificados?',tipo:'simnao',peso:3,inversa:false},
+    {secao:'Identificacao de Riscos',ordem:2,texto:'Os riscos são compatíveis com a atividade?',tipo:'simnao',peso:1,inversa:false},
     {secao:'Medidas de Controle',ordem:1,texto:'Existem controles para os riscos?',tipo:'simnao',peso:3,inversa:false},
-    {secao:'Medidas de Controle',ordem:2,texto:'Os controles sao especificos (nao genericos)?',tipo:'simnao',peso:1,inversa:false},
-    {secao:'Qualidade da APR',ordem:1,texto:'APR esta clara e legivel?',tipo:'simnao',peso:1,inversa:false},
-    {secao:'Qualidade da APR',ordem:2,texto:'Foi copiada de outra APR sem adaptacao?',tipo:'simnao',peso:1,inversa:true},
+    {secao:'Medidas de Controle',ordem:2,texto:'Os controles são específicos (não genéricos)?',tipo:'simnao',peso:1,inversa:false},
+    {secao:'Qualidade da APR',ordem:1,texto:'A APR está clara e legível?',tipo:'simnao',peso:1,inversa:false},
+    {secao:'Qualidade da APR',ordem:2,texto:'Foi copiada de outra APR sem adaptação?',tipo:'simnao',peso:1,inversa:true},
     {secao:'Qualidade da APR',ordem:3,texto:'Nota geral da APR (0 a 10)',tipo:'nota',peso:1,inversa:false},
-    {secao:'Evidencias',ordem:1,texto:'Registro / evidencia fotografica presente?',tipo:'simnao',peso:1,inversa:false},
-    {secao:'Desvios',ordem:1,texto:'Existe nao conformidade identificada?',tipo:'simnao',peso:1,inversa:true},
+    {secao:'Evidencias',ordem:1,texto:'Registro / evidência fotográfica presente?',tipo:'simnao',peso:1,inversa:false},
+    {secao:'Desvios',ordem:1,texto:'Existe não conformidade identificada?',tipo:'simnao',peso:1,inversa:true},
   ];
   const batch=db.batch();
   defaults.forEach(p=>{const ref=db.collection('perguntas').doc();batch.set(ref,{...p,criadoEm:new Date()});});
   await batch.commit();
-  const snap=await db.collection('perguntas').orderBy('secao').orderBy('ordem').get();
+  const snap=await db.collection('perguntas').get();
   PERGUNTAS=snap.docs.map(d=>({id:d.id,...d.data()}));
+  ordenarPerguntas();
+}
+
+// Mapa do texto antigo (sem acentuacao) das perguntas padrao para o texto
+// corrigido. Usado para corrigir perguntas ja existentes no Firestore sem
+// mexer em peso, secao, tipo ou perguntas personalizadas pelo usuario.
+const CORRECOES_TEXTO_PADRAO={
+  'APR possui identificacao da atividade?':'A APR possui identificação da atividade?',
+  'Data esta preenchida na APR?':'A data está preenchida na APR?',
+  'Equipe esta listada?':'A equipe está listada?',
+  'Riscos foram identificados?':'Os riscos foram identificados?',
+  'Os riscos sao compativeis com a atividade?':'Os riscos são compatíveis com a atividade?',
+  'Os controles sao especificos (nao genericos)?':'Os controles são específicos (não genéricos)?',
+  'APR esta clara e legivel?':'A APR está clara e legível?',
+  'Foi copiada de outra APR sem adaptacao?':'Foi copiada de outra APR sem adaptação?',
+  'Registro / evidencia fotografica presente?':'Registro / evidência fotográfica presente?',
+  'Existe nao conformidade identificada?':'Existe não conformidade identificada?',
+};
+
+async function corrigirAcentuacaoPadrao(){
+  const alvos=PERGUNTAS.filter(p=>CORRECOES_TEXTO_PADRAO[p.texto]);
+  if(!alvos.length){toast('Nenhuma pergunta padrao com texto desatualizado foi encontrada','err');return;}
+  if(!confirm('Corrigir a acentuacao de '+alvos.length+' pergunta(s) padrao? Peso, secao e demais configuracoes nao serao alterados.'))return;
+  try{
+    const batch=db.batch();
+    alvos.forEach(p=>batch.update(db.collection('perguntas').doc(p.id),{texto:CORRECOES_TEXTO_PADRAO[p.texto]}));
+    await batch.commit();
+    toast(alvos.length+' pergunta(s) corrigida(s)!','ok');
+    await loadPerguntas();renderPerguntasConfig();
+  }catch(e){toast('Erro ao corrigir: '+e.message,'err');}
 }
 
 function renderFormPerguntas(){
   const c=document.getElementById('form-perguntas');
   if(!PERGUNTAS.length){c.innerHTML='<div class="empty"><div class="empty-ico">?</div><div class="empty-txt">Nenhuma pergunta configurada.</div></div>';return;}
+  // Agrupa pelas secoes que realmente existem nos dados, em vez de exigir
+  // que o texto bata perfeitamente com a lista fixa SECOES. Isso evita que
+  // uma pergunta "suma" do formulario por causa de acento/maiuscula/espaco
+  // diferente no campo secao. As secoes conhecidas vem primeiro, na ordem
+  // padrao; qualquer secao extra aparece depois.
+  const secoesPresentes=[...new Set(PERGUNTAS.map(p=>p.secao))];
+  const ordemSecoes=[...SECOES.filter(s=>secoesPresentes.includes(s)),...secoesPresentes.filter(s=>!SECOES.includes(s))];
   const frag=document.createDocumentFragment();
-  SECOES.forEach(function(sec,si){
+  ordemSecoes.forEach(function(sec,si){
     const ps=PERGUNTAS.filter(function(p){return p.secao===sec;});
     if(!ps.length)return;
     const hdr=document.createElement('div');
@@ -898,9 +1004,9 @@ function renderPerguntasConfig(){
   list.forEach(p=>{
     if(!filtSecao&&p.secao!==lastSec){html+='<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--g700);padding:14px 0 6px;border-top:2px solid var(--g100);margin-top:4px">'+p.secao+'</div>';lastSec=p.secao;}
     html+='<div class="pq-row"><div class="pq-body"><div class="pq-txt">'+p.texto+'</div>';
-    html+='<div class="pq-meta"><span>'+(p.tipo==='nota'?'Nota':'Sim/Nao')+'</span><span class="pq-peso-tag'+(p.peso>=3?' hi':'')+'">Peso '+p.peso+'</span><span>'+p.secao+'</span>'+(p.inversa?'<span style="color:var(--yel)">Inversa</span>':'')+'</div></div>';
-    html+='<button class="btn-icon" onclick="openModalPerg(\''+p.id+'\')">&#9999;</button>';
-    html+='<button class="btn-icon del" onclick="delPergunta(\''+p.id+'\')">&#128465;</button></div>';
+    html+='<div class="pq-meta"><span>'+(p.tipo==='nota'?'Nota':'Sim/Nao')+'</span><span class="pq-peso-tag'+(p.peso>=3?' hi':'')+'">Peso '+p.peso+'</span><span>'+p.secao+'</span>'+(ehInversa(p)?'<span style="color:var(--yel)">Inversa</span>':'')+'</div></div>';
+    html+='<button class="btn-icon perg-edit" data-id="'+p.id+'">&#9999;</button>';
+    html+='<button class="btn-icon del perg-del" data-id="'+p.id+'">&#128465;</button></div>';
   });
   el.innerHTML=html;
 }
@@ -915,7 +1021,7 @@ function openModalPerg(id){
     document.getElementById('mpTipo').value=p.tipo||'simnao';
     document.getElementById('mpPeso').value=p.peso||1;
     document.getElementById('mpOrdem').value=p.ordem||1;
-    document.getElementById('mpInversa').checked=!!p.inversa;
+    document.getElementById('mpInversa').checked=ehInversa(p);
   }else{
     document.getElementById('mpTxt').value='';
     document.getElementById('mpSec').value='Identificacao da APR';
@@ -961,21 +1067,15 @@ async function enviarAuditoria(){
   if(!auditor||!unidadeId||!parceiro||!data||!apr||!local){toast('Preencha todos os campos obrigatorios (*)','err');return;}
   for(const p of PERGUNTAS){if(RESPOSTAS[p.id]===undefined){toast('Responda: '+p.texto,'err');return;}}
   const unidadeNome=UNIDADES.find(u=>u.id===unidadeId)?.nome||unidadeId;
-  let obtidos=0,maximos=0;
+  let obtidos=0,maximos=0,isNC=false;
   PERGUNTAS.forEach(p=>{
     if(p.tipo==='nota')return;
     maximos+=p.peso;
-    const ok=p.inversa?RESPOSTAS[p.id]==='Nao':RESPOSTAS[p.id]==='Sim';
+    const ok=ehInversa(p)?RESPOSTAS[p.id]==='Nao':RESPOSTAS[p.id]==='Sim';
     if(ok)obtidos+=p.peso;
+    if(!ok)isNC=true;
   });
   const conformidade=maximos>0?Math.round((obtidos/maximos)*100):0;
-  const isNC=PERGUNTAS.some(p=>{
-    if(p.tipo!=='simnao')return false;
-    const resp=RESPOSTAS[p.id];
-    if(resp==null)return false;
-    const ok=p.inversa?resp==='Nao':resp==='Sim';
-    return !ok;
-  });
   const notaP=PERGUNTAS.find(p=>p.tipo==='nota');
   const doc={auditor,unidadeId,unidadeNome,parceiro,data,apr,local,coment,
     respostas:{...RESPOSTAS},conformidade,naoConformidade:isNC,
@@ -1006,9 +1106,47 @@ function resetForm(){
 async function loadAuditorias(){
   try{
     const snap=await db.collection('auditorias').orderBy('enviadoEm','desc').limit(500).get();
-    AUDITORIAS=snap.docs.map(d=>({id:d.id,...d.data()}));
+    AUDITORIAS=snap.docs.map(d=>recalcAuditoria({id:d.id,...d.data()}));
+    atualizarFiltroEmpresas();
     renderDash();renderReg();
   }catch(e){console.warn(e);}
+}
+
+// Recalcula conformidade, nao-conformidade e nota a partir das respostas brutas
+// e das perguntas ATUAIS, em vez de confiar cegamente no valor gravado no
+// documento. Isso corrige exibicoes desatualizadas quando uma pergunta muda
+// (ex: marcar/desmarcar "Resposta inversa") sem precisar editar dados antigos.
+function recalcAuditoria(a){
+  const respostas=a.respostas||{};
+  let obtidos=0,maximos=0,isNC=false,nota=null,temPerguntaRespondida=false;
+  PERGUNTAS.forEach(p=>{
+    const resp=respostas[p.id];
+    if(p.tipo==='nota'){if(resp!=null)nota=resp;return;}
+    if(resp===undefined)return; // pergunta nao existia quando a auditoria foi enviada
+    temPerguntaRespondida=true;
+    maximos+=p.peso;
+    const ok=ehInversa(p)?resp==='Nao':resp==='Sim';
+    if(ok)obtidos+=p.peso;
+    if(!ok)isNC=true;
+  });
+  if(temPerguntaRespondida){
+    a.conformidade=maximos>0?Math.round((obtidos/maximos)*100):0;
+    a.naoConformidade=isNC;
+  }
+  if(nota!=null)a.nota=nota;
+  return a;
+}
+
+// Preenche os filtros "Empresa" do Dashboard e de Registros com as empresas
+// que realmente aparecem nas auditorias carregadas (antes ficavam sem opcoes).
+function atualizarFiltroEmpresas(){
+  const nomes=[...new Set(AUDITORIAS.map(a=>a.parceiro).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  ['dParc','rParc'].forEach(id=>{
+    const el=document.getElementById(id);if(!el)return;
+    const v=el.value;el.innerHTML='<option value="">Todas</option>';
+    nomes.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;el.appendChild(o);});
+    if(nomes.includes(v))el.value=v;
+  });
 }
 
 function getFilt(unid,parc,audit,per,nc){
@@ -1054,12 +1192,12 @@ function renderDash(){
   kc('b');
   if(emps.length)CHARTS['b']=new Chart(document.getElementById('cBar'),{
     type:'bar',data:{labels:emps,datasets:[{data:emps.map(e=>cm[e]),backgroundColor:emps.map(e=>corConf(cm[e])+'CC'),borderColor:emps.map(e=>corConf(cm[e])),borderWidth:2,borderRadius:8}]},
-    options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.raw+'%'}}},scales:{y:{min:0,max:100,grid:{color:'#F1F5F9'},ticks:{callback:v=>v+'%',font:{family:'Outfit',size:12}}},x:{grid:{display:false},ticks:{font:{family:'Outfit',size:12}}}},animation:{duration:600}}
+    options:{maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.raw+'%'}}},scales:{y:{min:0,max:100,grid:{color:'#F1F5F9'},ticks:{callback:v=>v+'%',font:{family:'Outfit',size:12}}},x:{grid:{display:false},ticks:{font:{family:'Outfit',size:12}}}},animation:{duration:600}}
   });
   kc('nc');
   if(emps.length)CHARTS['nc']=new Chart(document.getElementById('cNC'),{
     type:'doughnut',data:{labels:emps,datasets:[{data:emps.map(e=>pm[e].nc||0),backgroundColor:CORES.slice(0,emps.length),borderWidth:3,borderColor:'#fff'}]},
-    options:{plugins:{legend:{position:'bottom',labels:{font:{family:'Outfit',size:11},padding:10}},tooltip:{callbacks:{label:c=>c.label+': '+c.raw+' NC'}}},animation:{duration:600}}
+    options:{maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{family:'Outfit',size:11},padding:10}},tooltip:{callbacks:{label:c=>c.label+': '+c.raw+' NC'}}},animation:{duration:600}}
   });
   kc('l');
   const meses={};
@@ -1079,7 +1217,7 @@ function renderDash(){
       pointBackgroundColor:CORES[i%CORES.length],borderWidth:2.5,pointRadius:4,tension:0.3,spanGaps:true,
       data:keys.map(k=>{const cs=meses[k].d[e];return cs&&cs.length?Math.round(cs.reduce((a,b)=>a+b,0)/cs.length):null;})
     }))},
-    options:{plugins:{legend:{position:'bottom',labels:{font:{family:'Outfit',size:11},padding:12}},tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.raw+'%'}}},
+    options:{maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{family:'Outfit',size:11},padding:12}},tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.raw+'%'}}},
       scales:{y:{min:0,max:100,grid:{color:'#F1F5F9'},ticks:{callback:v=>v+'%',font:{family:'Outfit',size:12}}},x:{grid:{display:false},ticks:{font:{family:'Outfit',size:12}}}},animation:{duration:600}}
   });
   const sorted=[...emps].sort((a,b)=>cm[b]-cm[a]);
@@ -1094,8 +1232,42 @@ function renderDash(){
   if(emps.length)CHARTS['nota']=new Chart(document.getElementById('cNota'),{
     type:'bar',data:{labels:emps,datasets:[{data:emps.map(e=>{const ns=pm[e].notas;return ns.length?+(ns.reduce((a,b)=>a+b,0)/ns.length).toFixed(1):0;}),
       backgroundColor:CORES.slice(0,emps.length).map(c=>c+'BB'),borderColor:CORES.slice(0,emps.length),borderWidth:2,borderRadius:8}]},
-    options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'Nota: '+c.raw+'/10'}}},
+    options:{maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'Nota: '+c.raw+'/10'}}},
       scales:{y:{min:0,max:10,grid:{color:'#F1F5F9'},ticks:{font:{family:'Outfit',size:12}}},x:{grid:{display:false},ticks:{font:{family:'Outfit',size:12}}}},animation:{duration:600}}
+  });
+
+  // Perguntas com mais Nao Conformidades: conta, entre as auditorias filtradas,
+  // quantas vezes cada pergunta Sim/Nao foi respondida fora do padrao esperado.
+  const ncPorPergunta={};
+  dados.forEach(a=>{
+    const respostas=a.respostas||{};
+    PERGUNTAS.forEach(p=>{
+      if(p.tipo==='nota')return;
+      const resp=respostas[p.id];
+      if(resp===undefined)return;
+      const ok=ehInversa(p)?resp==='Nao':resp==='Sim';
+      if(!ok){
+        if(!ncPorPergunta[p.id])ncPorPergunta[p.id]={texto:p.texto,secao:p.secao,count:0};
+        ncPorPergunta[p.id].count++;
+      }
+    });
+  });
+  const rankNCQ=Object.values(ncPorPergunta).sort((a,b)=>b.count-a.count).slice(0,8);
+  kc('ncq');
+  document.getElementById('cNCQ').style.display=rankNCQ.length?'block':'none';
+  document.getElementById('ncqEmpty').style.display=rankNCQ.length?'none':'block';
+  if(rankNCQ.length)CHARTS['ncq']=new Chart(document.getElementById('cNCQ'),{
+    type:'bar',
+    data:{labels:rankNCQ.map(r=>r.texto.length>42?r.texto.slice(0,42)+'…':r.texto),
+      datasets:[{data:rankNCQ.map(r=>r.count),backgroundColor:'#DC2626CC',borderColor:'#DC2626',borderWidth:2,borderRadius:6}]},
+    options:{indexAxis:'y',maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{
+        title:c=>rankNCQ[c[0].dataIndex].texto,
+        label:c=>c.raw+' ocorrencia'+(c.raw===1?'':'s')+' — secao: '+rankNCQ[c.dataIndex].secao
+      }}},
+      scales:{x:{beginAtZero:true,ticks:{precision:0,font:{family:'Outfit',size:12}},grid:{color:'#F1F5F9'}},
+        y:{ticks:{font:{family:'Outfit',size:11}},grid:{display:false}}},
+      animation:{duration:600}}
   });
 }
 
@@ -1118,15 +1290,14 @@ function renderReg(){
       +'<td><span style="font-weight:800;color:'+nc+'">'+(n!=null?n+'/10':'--')+'</span></td>'
       +'<td><span style="font-weight:700;color:'+corC+'">'+(conf!=null?conf+'%':'--')+'</span></td>'
       +'<td><span class="badge '+(isNC?'b-nc':'b-ok')+'">'+(isNC?'NC':'OK')+'</span></td>'
-      +'<td><button class="btn-icon" onclick="openPrint(\''+a.id+'\')" title="Imprimir">&#128438;</button>'
-      +(CU&&CU.perfil==='admin'?'<button class="btn-icon del" onclick="delAuditoria(\''+a.id+'\')" title="Excluir registro">&#128465;</button>':'')
+      +'<td><button class="btn-icon print-btn" data-id="'+a.id+'" title="Imprimir">&#128438;</button>'
+      +(CU&&CU.perfil==='admin'?'<button class="btn-icon del reg-del" data-id="'+a.id+'" title="Excluir registro">&#128465;</button>':'')
       +'</td></tr>';
   }).join(''):'<tr><td colspan="10"><div class="empty"><div class="empty-ico">-</div><div class="empty-txt">Nenhum registro</div></div></td></tr>';
 }
 
-// === IMPRESSAO ===
 async function delAuditoria(id){
-  if(!confirm('Excluir este registro de auditoria? Essa acao nao pode ser desfeita.'))return;
+  if(!confirm('Excluir permanentemente este registro de auditoria? Esta acao nao pode ser desfeita.'))return;
   try{
     await db.collection('auditorias').doc(id).delete();
     toast('Registro excluido','ok');
@@ -1134,11 +1305,14 @@ async function delAuditoria(id){
   }catch(e){toast('Erro ao excluir: '+e.message,'err');}
 }
 
+// === IMPRESSAO ===
 function openPrint(id){
   const a=AUDITORIAS.find(x=>x.id===id);if(!a)return;
   const conf=a.conformidade??0;const corC=corConf(conf);const isNC=a.naoConformidade;
   let secoes='';
-  SECOES.forEach(sec=>{
+  const secoesPresentesP=[...new Set(PERGUNTAS.map(p=>p.secao))];
+  const ordemSecoesP=[...SECOES.filter(s=>secoesPresentesP.includes(s)),...secoesPresentesP.filter(s=>!SECOES.includes(s))];
+  ordemSecoesP.forEach(sec=>{
     const ps=PERGUNTAS.filter(p=>p.secao===sec);if(!ps.length)return;
     secoes+='<div class="print-section"><div class="print-section-title">'+sec+'</div>';
     ps.forEach(p=>{
@@ -1170,6 +1344,7 @@ function openPrint(id){
 
 // === NAV ===
 async function goP(btn){
+  hideInfo();
   const id=btn.getAttribute('data-page');
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
@@ -1186,6 +1361,36 @@ async function goP(btn){
 function showS(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
+
+// === INFO POPOVER (botao "?" nos cards/graficos) ===
+let infoOpenBtn=null;
+function toggleInfo(btn){
+  const pop=document.getElementById('infoPop');
+  if(infoOpenBtn===btn){hideInfo();return;}
+  pop.textContent=btn.getAttribute('data-info')||'';
+  pop.style.display='block';
+  infoOpenBtn=btn;
+  const r=btn.getBoundingClientRect();
+  const popW=Math.min(280,window.innerWidth-24);
+  pop.style.maxWidth=popW+'px';
+  let left=r.left;
+  if(left+popW+12>window.innerWidth)left=window.innerWidth-popW-12;
+  if(left<12)left=12;
+  let top=r.bottom+8;
+  const popH=pop.offsetHeight||90;
+  if(top+popH+12>window.innerHeight)top=Math.max(12,r.top-popH-8);
+  pop.style.left=left+'px';
+  pop.style.top=top+'px';
+}
+function hideInfo(){
+  document.getElementById('infoPop').style.display='none';
+  infoOpenBtn=null;
+}
+document.addEventListener('click',function(e){
+  if(infoOpenBtn&&!e.target.closest('.info-pop')&&!e.target.closest('.info-btn'))hideInfo();
+});
+window.addEventListener('resize',hideInfo);
+window.addEventListener('scroll',hideInfo,true);
 
 let toastT;
 function toast(msg,type=''){
