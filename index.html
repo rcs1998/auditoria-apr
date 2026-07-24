@@ -14,6 +14,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 <!-- LOGIN -->
@@ -73,6 +75,7 @@
     <button class="nb" data-page="usuarios" data-role="gestor" onclick="goP(this)"><span class="ni">&#128101;</span><span>Usuarios</span></button>
     <div class="sb-sec" data-role="admin">Admin</div>
     <button class="nb" data-page="configuracoes" data-role="admin" onclick="goP(this)"><span class="ni">&#9881;</span><span>Configuracoes</span></button>
+    <button class="nb" data-page="perfis" data-role="admin-fixo" onclick="goP(this)"><span class="ni">&#128272;</span><span>Perfis de Acesso</span></button>
   </nav>
   <div class="sb-bottom">
     <div style="margin-bottom:8px">
@@ -81,6 +84,7 @@
     <div class="user-pill">
       <div class="u-av" id="uAv">?</div>
       <div class="u-nm" id="uNm">...</div>
+      <button class="btn-out" onclick="abrirTrocarSenha(false)" title="Trocar minha senha" style="color:rgba(255,255,255,.35)">&#128273;</button>
       <button class="btn-out" onclick="fazerLogout()" title="Sair">&#8617;</button>
     </div>
   </div>
@@ -105,7 +109,9 @@
         <option value="180">Ultimos 6 meses</option>
       </select>
       <button class="btn-ref" onclick="loadAuditorias()">Atualizar</button>
+      <button class="btn-ref" id="btnExportPDF" style="background:var(--blu)" onclick="exportarDashboardPDF()">&#128196; Exportar PDF</button>
     </div>
+    <div id="dashCapture">
     <div class="kpi-grid">
       <div class="kpi"><div class="kpi-ico">&#9989;</div><div class="kpi-lbl">Conformidade Geral<button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Média da % de conformidade entre as empresas do filtro atual. Primeiro calculamos a conformidade média de cada empresa (soma dos pesos das perguntas Sim/Não respondidas corretamente, dividida pelo peso total possível); depois tiramos a média entre as empresas. Não é a média simples de todas as auditorias juntas.">?</button></div><div class="kpi-val" id="kConf">--</div><div class="kpi-sub">media ponderada</div></div>
       <div class="kpi"><div class="kpi-ico">&#128203;</div><div class="kpi-lbl">Auditorias<button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Quantidade de auditorias enviadas que atendem aos filtros selecionados acima (unidade, empresa, auditor e período).">?</button></div><div class="kpi-val" id="kAud">--</div><div class="kpi-sub">no periodo</div></div>
@@ -125,6 +131,7 @@
       <div class="card-head"><span class="card-title">Perguntas com Mais Nao Conformidades</span><button type="button" class="info-btn" onclick="toggleInfo(this)" data-info="Mostra, entre as auditorias do filtro atual, quais perguntas mais vezes foram respondidas fora do padrão esperado de conformidade — ou seja, os pontos que mais geram não conformidade. Cada barra é uma pergunta; o número é quantas vezes ela falhou nesse conjunto de auditorias.">?</button></div>
       <div class="chart-wrap" style="height:320px"><canvas id="cNCQ"></canvas></div>
       <div class="empty" id="ncqEmpty" style="display:none"><div class="empty-ico">-</div><div class="empty-txt">Nenhuma nao conformidade no filtro atual</div></div>
+    </div>
     </div>
   </div>
 
@@ -189,12 +196,16 @@
           <div style="font-size:12px;font-weight:700;color:var(--s500);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px">Criar Novo Usuario</div>
           <div class="ff"><label>Nome</label><input type="text" id="uNome" placeholder="Nome completo"/></div>
           <div class="ff"><label>E-mail</label><input type="email" id="uEmail" placeholder="email@empresa.com"/></div>
-          <div class="ff"><label>Senha</label><input type="password" id="uSenha" placeholder="Minimo 6 caracteres"/></div>
+          <div class="ff">
+            <label>Senha Temporaria</label>
+            <div style="display:flex;gap:8px">
+              <input type="text" id="uSenha" placeholder="Minimo 6 caracteres" style="flex:1"/>
+              <button type="button" class="btn btn-s btn-sm" style="margin-top:0;width:auto" onclick="gerarSenhaTemp()">Gerar</button>
+            </div>
+            <div style="font-size:11px;color:var(--s500);margin-top:4px">O usuario recebera esta senha e sera obrigado a trocar no primeiro acesso.</div>
+          </div>
           <div class="ff"><label>Perfil</label>
-            <select id="uPerfil">
-              <option value="gestor">Gestor - dashboard, registros, perguntas, usuarios</option>
-              <option value="admin">Admin - acesso total</option>
-            </select>
+            <select id="uPerfil"></select>
           </div>
           <button class="btn btn-p btn-sm" onclick="criarUsuario()">+ Criar Usuario</button>
         </div>
@@ -225,6 +236,17 @@
     </div>
   </div>
 
+  <!-- PERFIS DE ACESSO -->
+  <div class="page" id="page-perfis">
+    <div class="card" style="max-width:720px">
+      <div class="card-head"><span class="card-title">Perfis de Acesso</span><button class="btn btn-p btn-sm" onclick="openModalPerfil(null)">+ Novo Perfil</button></div>
+      <div style="font-size:12px;color:var(--s500);margin-bottom:14px;line-height:1.5">
+        Defina quais paginas cada perfil pode acessar. O perfil <strong>Admin</strong> sempre tem acesso total, para evitar bloqueio acidental do sistema.
+      </div>
+      <div class="items-list" id="listaPerfis" style="min-height:60px"></div>
+    </div>
+  </div>
+
 </div>
 </div>
 
@@ -242,11 +264,18 @@
         <option>Evidencias</option><option>Desvios</option>
       </select>
     </div>
-    <div class="ff"><label>Tipo *</label><select id="mpTipo"><option value="simnao">Sim / Nao</option><option value="nota">Nota (0-10)</option></select></div>
+    <div class="ff"><label>Tipo *</label><select id="mpTipo" onchange="atualizarVisibilidadeNCToggle()"><option value="simnao">Sim / Nao</option><option value="nota">Nota (0-10)</option></select></div>
   </div>
   <div class="ff-grid">
-    <div class="ff"><label>Peso (1-5)</label><input type="number" id="mpPeso" value="1" min="1" max="5"/></div>
+    <div class="ff"><label>Peso (0-5)</label><input type="number" id="mpPeso" value="1" min="0" max="5"/></div>
     <div class="ff"><label>Ordem</label><input type="number" id="mpOrdem" value="1" min="1"/></div>
+  </div>
+  <div style="font-size:11px;color:var(--s500);margin:-8px 0 12px">Peso 0 = pergunta informativa, nao entra no calculo de % de conformidade.</div>
+  <div class="ff" id="mpNCWrap">
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;text-transform:none;letter-spacing:0">
+      <input type="checkbox" id="mpContaNC" style="width:auto;margin:0" checked/> Considerar como Nao Conformidade quando a resposta for negativa
+    </label>
+    <div style="font-size:11px;color:var(--s500);margin-top:4px">Desmarque para perguntas apenas informativas (ex: "Foi feito registro fotografico?"), que nao devem marcar a auditoria inteira como NC.</div>
   </div>
   <div class="ff">
     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;text-transform:none;letter-spacing:0">
@@ -267,10 +296,55 @@
   <h3>Editar Usuario</h3>
   <input type="hidden" id="muId"/>
   <div class="ff"><label>Nome</label><input type="text" id="muNome"/></div>
-  <div class="ff"><label>Perfil</label><select id="muPerfil"><option value="gestor">Gestor</option><option value="admin">Admin</option></select></div>
+  <div class="ff"><label>Perfil</label><select id="muPerfil"></select></div>
+  <div class="ff">
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;text-transform:none;letter-spacing:0">
+      <input type="checkbox" id="muSenhaTemp" style="width:auto;margin:0"/> Exigir troca de senha no proximo login
+    </label>
+  </div>
   <div class="modal-btns">
     <button class="btn btn-s" onclick="closeModal('modalUser')">Cancelar</button>
     <button class="btn btn-p" onclick="salvarUser()">Salvar</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL PERFIL DE ACESSO -->
+<div class="modal-overlay" id="modalPerfil">
+<div class="modal">
+  <h3 id="mfTitle">Novo Perfil</h3>
+  <input type="hidden" id="mfChave"/>
+  <div class="ff"><label>Nome do Perfil *</label><input type="text" id="mfNome" placeholder="Ex: Auditor Regional"/></div>
+  <div class="ff">
+    <label>Paginas que este perfil pode acessar</label>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600"><input type="checkbox" id="mfDashboard" style="width:auto;margin:0"/> Dashboard</label>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600"><input type="checkbox" id="mfRegistros" style="width:auto;margin:0"/> Registros</label>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600"><input type="checkbox" id="mfPerguntas" style="width:auto;margin:0"/> Perguntas</label>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600"><input type="checkbox" id="mfUsuarios" style="width:auto;margin:0"/> Usuarios</label>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600"><input type="checkbox" id="mfConfiguracoes" style="width:auto;margin:0"/> Configuracoes</label>
+    </div>
+  </div>
+  <div class="modal-btns">
+    <button class="btn btn-s" onclick="closeModal('modalPerfil')">Cancelar</button>
+    <button class="btn btn-p" onclick="salvarPerfil()">Salvar</button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL TROCAR SENHA -->
+<div class="modal-overlay" id="modalSenha">
+<div class="modal">
+  <h3 id="smTitle">Trocar Senha</h3>
+  <div id="smAvisoObrig" style="display:none;background:var(--yell);border:1.5px solid #FCD34D;color:#92400E;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:500;margin-bottom:14px">
+    Esta e uma senha temporaria. Defina uma nova senha para continuar.
+  </div>
+  <div class="ff"><label>Nova Senha</label><input type="password" id="smNova" placeholder="Minimo 6 caracteres"/></div>
+  <div class="ff"><label>Confirmar Nova Senha</label><input type="password" id="smConfirma" placeholder="Repita a senha"/></div>
+  <div class="err-box" id="smErr"></div>
+  <div class="modal-btns">
+    <button class="btn btn-s" id="smCancelBtn" onclick="closeModal('modalSenha')">Cancelar</button>
+    <button class="btn btn-p" onclick="confirmarTrocaSenha()">Salvar Nova Senha</button>
   </div>
 </div>
 </div>

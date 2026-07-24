@@ -6,7 +6,7 @@
 // a app já tem sua própria lógica de fila offline para isso.
 // ═══════════════════════════════════════════════════════
 
-const CACHE_NAME = 'auditoria-apr-v4';
+const CACHE_NAME = 'auditoria-apr-v5';
 
 const ASSETS_ESTATICOS = [
   './',

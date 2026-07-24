@@ -1,16 +1,28 @@
 // === GLOBALS ===
-let db,auth,CU=null,unsubAuditores=null;
-let UNIDADES=[],AUDITORIAS=[],PERGUNTAS=[],AUDITORES=[];
+let db,auth,authSecundario,CU=null,unsubAuditores=null;
+let UNIDADES=[],AUDITORIAS=[],PERGUNTAS=[],AUDITORES=[],PERFIS=[];
 let RESPOSTAS={},CHARTS={},filtSecao='';
 const CORES=['#1B6B2E','#16A34A','#D97706','#1D4ED8','#DC2626','#7C3AED','#0891B2','#DB2777'];
 const SECOES=['Identificacao da APR','Identificacao de Riscos','Medidas de Controle','Qualidade da APR','Evidencias','Desvios'];
-const PAGE_TITLES={dashboard:'Dashboard',registros:'Registros',perguntas:'Perguntas',usuarios:'Usuarios',configuracoes:'Configuracoes'};
+const PAGE_TITLES={dashboard:'Dashboard',registros:'Registros',perguntas:'Perguntas',usuarios:'Usuarios',configuracoes:'Configuracoes',perfis:'Perfis de Acesso'};
+// Paginas controladas pelo sistema dinamico de perfis de acesso.
+// "perfis" (gestao de perfis) fica de fora de propósito: e sempre admin-only,
+// para nunca correr o risco de ninguem conseguir editar permissoes.
+const PAGINAS_PERMISSAO=['dashboard','registros','perguntas','usuarios','configuracoes'];
 
 // Le o campo "inversa" de forma robusta: aceita true (boolean) ou 'true' (string),
 // qualquer outra coisa (false, undefined, null, '', 'false') conta como nao-inversa.
 // Isso evita que uma pergunta marcada como inversa deixe de funcionar por causa
 // do tipo de dado gravado no Firestore.
 function ehInversa(p){return p&&(p.inversa===true||p.inversa==='true');}
+
+// Le o campo "contaComoNC" de forma robusta: por padrao (undefined/null,
+// dado antigo gravado antes desta funcionalidade existir) a pergunta CONTA
+// como Nao Conformidade, preservando o comportamento de sempre. So deixa de
+// contar quando o campo foi explicitamente marcado como false/'false' —
+// usado em perguntas informativas (ex: "Foi feito registro fotografico?"),
+// que nao devem, sozinhas, marcar a auditoria inteira como NC.
+function contaComoNC(p){return !(p&&(p.contaComoNC===false||p.contaComoNC==='false'));}
 
 // Trava o envio da auditoria ate que todos os campos obrigatorios (*) e todas
 // as perguntas estejam preenchidos. Comentarios Finais continuam opcionais.
@@ -72,6 +84,13 @@ function initFB(cfg){
     if(!firebase.apps.length)firebase.initializeApp(cfg);
     db=firebase.firestore();
     auth=firebase.auth();
+    // App Firebase SECUNDARIO, usado apenas para criar novos usuarios.
+    // Motivo: firebase.auth().createUserWithEmailAndPassword() na instancia
+    // PRINCIPAL loga automaticamente como o usuario recem-criado, derrubando
+    // a sessao do admin que estava logado. Criando o usuario nesta instancia
+    // separada, a sessao do admin (auth principal) nunca e afetada.
+    const appSecundario=firebase.apps.find(a=>a.name==='Secundario')||firebase.initializeApp(cfg,'Secundario');
+    authSecundario=appSecundario.auth();
     // Carrega auditores, unidades e perguntas imediatamente, sem depender
     // de login, para que o formulario publico funcione para qualquer visitante.
     subscribeAuditores();
@@ -157,6 +176,149 @@ async function delAuditor(id){
   }catch(e){toast('Erro ao remover: '+e.message,'err');}
 }
 
+// === PERFIS DE ACESSO (RBAC) ===
+// Cada perfil e um documento em "perfis": {chave, nome, permissoes:{dashboard,
+// registros, perguntas, usuarios, configuracoes}, protegido}. O campo
+// usuario.perfil grava a "chave" do perfil. O perfil de chave 'admin' SEMPRE
+// tem acesso total, mesmo que o documento no Firestore diga outra coisa —
+// isso e travado no codigo (nao so nos dados) para nunca deixar ninguem
+// bloqueado da area que gerencia os proprios perfis.
+async function loadPerfis(){
+  const snap=await db.collection('perfis').get();
+  PERFIS=snap.docs.map(d=>({id:d.id,...d.data()}));
+  if(!PERFIS.length){
+    try{await seedPerfis();}catch(e){console.warn('Nao foi possivel semear os perfis padrao:',e);}
+  }
+}
+
+async function seedPerfis(){
+  const defaults=[
+    {chave:'admin',nome:'Admin',protegido:true,permissoes:{dashboard:true,registros:true,perguntas:true,usuarios:true,configuracoes:true}},
+    {chave:'gestor',nome:'Gestor',protegido:true,permissoes:{dashboard:true,registros:true,perguntas:true,usuarios:true,configuracoes:false}},
+  ];
+  const batch=db.batch();
+  defaults.forEach(p=>{const ref=db.collection('perfis').doc();batch.set(ref,{...p,criadoEm:new Date()});});
+  await batch.commit();
+  const snap=await db.collection('perfis').get();
+  PERFIS=snap.docs.map(d=>({id:d.id,...d.data()}));
+}
+
+// Retorna o objeto de permissoes efetivo para uma chave de perfil.
+// 'admin' e sempre full-access, como trava de seguranca do proprio codigo.
+function permissoesDoPerfil(chave){
+  if(chave==='admin')return{dashboard:true,registros:true,perguntas:true,usuarios:true,configuracoes:true};
+  const p=PERFIS.find(x=>x.chave===chave);
+  if(p)return{...p.permissoes};
+  // Perfil desconhecido/removido: acesso minimo (apenas dashboard e registros)
+  // para nao travar o usuario totalmente fora do sistema.
+  return{dashboard:true,registros:true,perguntas:false,usuarios:false,configuracoes:false};
+}
+
+function temPermissao(pagina){
+  if(!CU)return false;
+  if(CU.perfil==='admin')return true;
+  return !!(CU.permissoes&&CU.permissoes[pagina]);
+}
+
+function renderPerfisList(){
+  const el=document.getElementById('listaPerfis');if(!el)return;
+  el.innerHTML='';
+  if(!PERFIS.length){el.innerHTML='<div style="font-size:13px;color:var(--s500);padding:8px">Nenhum perfil cadastrado.</div>';return;}
+  PERFIS.forEach(function(p){
+    const row=document.createElement('div');row.className='item-row';row.style.flexWrap='wrap';
+    const info=document.createElement('div');info.style.flex='1';info.style.minWidth='200px';
+    const nm=document.createElement('div');nm.className='item-lbl';nm.textContent=p.nome+(p.chave==='admin'?' (acesso total, fixo)':'');
+    const perms=PAGINAS_PERMISSAO.filter(pg=>permissoesDoPerfil(p.chave)[pg]).map(pg=>PAGE_TITLES[pg]).join(', ')||'Nenhuma pagina liberada';
+    const sub=document.createElement('div');sub.className='item-sub';sub.textContent=perms;
+    info.appendChild(nm);info.appendChild(sub);
+    const btnE=document.createElement('button');btnE.className='btn-icon';btnE.innerHTML='&#9999;';btnE.title='Editar';
+    btnE.addEventListener('click',function(){openModalPerfil(p.chave);});
+    row.appendChild(info);row.appendChild(btnE);
+    if(!p.protegido){
+      const btnD=document.createElement('button');btnD.className='btn-icon del';btnD.innerHTML='&#128465;';btnD.title='Excluir';
+      btnD.addEventListener('click',function(){delPerfil(p.chave,p.id);});
+      row.appendChild(btnD);
+    }
+    el.appendChild(row);
+  });
+}
+
+function openModalPerfil(chave){
+  const p=chave?PERFIS.find(x=>x.chave===chave):null;
+  document.getElementById('mfTitle').textContent=p?'Editar Perfil':'Novo Perfil';
+  document.getElementById('mfChave').value=chave||'';
+  document.getElementById('mfNome').value=p?p.nome:'';
+  const perms=p?p.permissoes:{dashboard:true,registros:true,perguntas:false,usuarios:false,configuracoes:false};
+  document.getElementById('mfDashboard').checked=!!perms.dashboard;
+  document.getElementById('mfRegistros').checked=!!perms.registros;
+  document.getElementById('mfPerguntas').checked=!!perms.perguntas;
+  document.getElementById('mfUsuarios').checked=!!perms.usuarios;
+  document.getElementById('mfConfiguracoes').checked=!!perms.configuracoes;
+  // Perfil 'admin' sempre tem acesso total e nao pode ter isso alterado.
+  const travado=chave==='admin';
+  ['mfDashboard','mfRegistros','mfPerguntas','mfUsuarios','mfConfiguracoes'].forEach(id=>{
+    document.getElementById(id).disabled=travado;
+    if(travado)document.getElementById(id).checked=true;
+  });
+  openModal('modalPerfil');
+}
+
+async function salvarPerfil(){
+  const chave=document.getElementById('mfChave').value;
+  const nome=document.getElementById('mfNome').value.trim();
+  if(!nome){toast('Digite o nome do perfil','err');return;}
+  const permissoes={
+    dashboard:document.getElementById('mfDashboard').checked,
+    registros:document.getElementById('mfRegistros').checked,
+    perguntas:document.getElementById('mfPerguntas').checked,
+    usuarios:document.getElementById('mfUsuarios').checked,
+    configuracoes:document.getElementById('mfConfiguracoes').checked,
+  };
+  try{
+    if(chave){
+      const p=PERFIS.find(x=>x.chave===chave);
+      if(p)await db.collection('perfis').doc(p.id).update({nome,permissoes});
+    }else{
+      const novaChave=slugify(nome);
+      if(!novaChave){toast('Nome invalido','err');return;}
+      if(PERFIS.some(x=>x.chave===novaChave)){toast('Ja existe um perfil com esse nome','err');return;}
+      await db.collection('perfis').add({chave:novaChave,nome,permissoes,protegido:false,criadoEm:new Date()});
+    }
+    closeModal('modalPerfil');toast('Perfil salvo!','ok');
+    await loadPerfis();renderPerfisList();populatePerfilSelects();
+    if(CU)CU.permissoes=permissoesDoPerfil(CU.perfil);
+  }catch(e){toast('Erro: '+e.message,'err');}
+}
+
+async function delPerfil(chave,id){
+  const emUso=await db.collection('usuarios').where('perfil','==',chave).limit(1).get();
+  if(!emUso.empty){toast('Existem usuarios com este perfil. Troque o perfil deles antes de excluir.','err');return;}
+  if(!confirm('Excluir este perfil de acesso?'))return;
+  await db.collection('perfis').doc(id).delete();
+  toast('Perfil excluido','ok');
+  await loadPerfis();renderPerfisList();populatePerfilSelects();
+}
+
+function slugify(s){
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
+}
+
+// Preenche os selects de "Perfil" (criar/editar usuario) com os perfis
+// cadastrados dinamicamente no Firestore.
+function populatePerfilSelects(){
+  ['uPerfil','muPerfil'].forEach(id=>{
+    const sel=document.getElementById(id);if(!sel)return;
+    const v=sel.value;
+    sel.innerHTML='';
+    PERFIS.forEach(p=>{
+      const o=document.createElement('option');o.value=p.chave;
+      o.textContent=p.nome+(p.chave==='admin'?' - acesso total':'');
+      sel.appendChild(o);
+    });
+    if(v&&PERFIS.some(p=>p.chave===v))sel.value=v;
+  });
+}
+
 // === AUTH ===
 async function fazerLogin(){
   const email=document.getElementById('lEmail').value.trim();
@@ -177,25 +339,57 @@ async function onLogin(u){
     irForm();
     return;
   }
+  await loadPerfis();
+  CU.permissoes=permissoesDoPerfil(CU.perfil);
   document.getElementById('uAv').textContent=(CU.nome||'?')[0].toUpperCase();
   document.getElementById('uNm').textContent=CU.nome||CU.email;
   const rb=document.getElementById('roleBadge');
-  rb.textContent=CU.perfil==='admin'?'Admin':'Gestor';
+  const perfilInfo=PERFIS.find(p=>p.chave===CU.perfil);
+  rb.textContent=perfilInfo?perfilInfo.nome:(CU.perfil==='admin'?'Admin':'Gestor');
   rb.className='badge '+(CU.perfil==='admin'?'b-admin':'b-gestor');
-  document.querySelectorAll('[data-role]').forEach(el=>{
-    const role=el.getAttribute('data-role');
-    const show=role==='gestor'?true:CU.perfil==='admin';
-    el.style.display=show?(el.tagName==='BUTTON'?'flex':'block'):'none';
-  });
+  aplicarVisibilidadeMenu();
   showS('s-app');
   document.getElementById('btnPainel').textContent='Ir ao Painel';
   document.getElementById('btnPainel').onclick=()=>showS('s-app');
   await loadPerguntas();
   await loadUnidadesForm();
   await loadAuditorias();
+  // Se o perfil deste usuario nao tem acesso ao Dashboard (pagina padrao ao
+  // abrir o painel), navega automaticamente para a primeira pagina permitida.
+  if(!temPermissao('dashboard')){
+    const primeiroBtn=[...document.querySelectorAll('.nb[data-page]')].find(b=>b.style.display!=='none');
+    if(primeiroBtn)goP(primeiroBtn);
+  }
+  // Senha temporaria: obriga a troca antes de liberar qualquer outra acao.
+  if(CU.senhaTemporaria===true)abrirTrocarSenha(true);
+}
+
+// Mostra/esconde os itens do menu lateral conforme as permissoes do
+// perfil do usuario logado. "Perfis de Acesso" so aparece para o perfil
+// 'admin', sempre, independente do que estiver no Firestore (evita que
+// alguem se tranque fora da gestao de permissoes).
+function aplicarVisibilidadeMenu(){
+  document.querySelectorAll('[data-page]').forEach(el=>{
+    const pagina=el.getAttribute('data-page');
+    const show=pagina==='perfis'?CU.perfil==='admin':!!CU.permissoes[pagina];
+    el.style.display=show?'flex':'none';
+  });
+  const secGestao=document.querySelector('.sb-sec[data-role="gestor"]');
+  if(secGestao)secGestao.style.display=(CU.permissoes.perguntas||CU.permissoes.usuarios)?'block':'none';
+  const secAdmin=document.querySelector('.sb-sec[data-role="admin"]');
+  if(secAdmin)secAdmin.style.display=(CU.permissoes.configuracoes||CU.perfil==='admin')?'block':'none';
 }
 
 async function fazerLogout(){await auth.signOut();CU=null;irForm();}
+
+// Gera uma senha temporaria aleatoria e ja preenche o campo, para o admin
+// so copiar e repassar ao usuario.
+function gerarSenhaTemp(){
+  const chars='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  let s='';
+  for(let i=0;i<10;i++)s+=chars[Math.floor(Math.random()*chars.length)];
+  document.getElementById('uSenha').value=s;
+}
 
 async function criarUsuario(){
   const nome=document.getElementById('uNome').value.trim();
@@ -203,19 +397,33 @@ async function criarUsuario(){
   const senha=document.getElementById('uSenha').value;
   const perfil=document.getElementById('uPerfil').value;
   if(!nome||!email||!senha){toast('Preencha todos os campos','err');return;}
+  if(senha.length<6){toast('A senha deve ter no minimo 6 caracteres','err');return;}
   try{
-    const cred=await auth.createUserWithEmailAndPassword(email,senha);
-    await cred.user.updateProfile({displayName:nome});
-    await db.collection('usuarios').doc(cred.user.uid).set({nome,email,perfil,ativo:true,criadoEm:new Date()});
+    // IMPORTANTE: cria o usuario na instancia SECUNDARIA do Firebase Auth
+    // (authSecundario), nao na instancia principal (auth). Isso evita o bug
+    // onde criar um usuario novo derrubava a sessao do admin e logava
+    // automaticamente como o usuario recem-criado.
+    const cred=await authSecundario.createUserWithEmailAndPassword(email,senha);
+    try{
+      await cred.user.updateProfile({displayName:nome});
+      await db.collection('usuarios').doc(cred.user.uid).set({
+        nome,email,perfil,ativo:true,
+        senhaTemporaria:true, // usuario sera obrigado a trocar no primeiro acesso
+        criadoEm:new Date()
+      });
+    }finally{
+      await authSecundario.signOut(); // sempre encerra a sessao secundaria; o admin continua logado normalmente
+    }
     document.getElementById('uNome').value='';
     document.getElementById('uEmail').value='';
     document.getElementById('uSenha').value='';
-    toast('Usuario criado!','ok');
+    toast('Usuario criado! Informe a senha temporaria a ele.','ok');
     await renderUsers();
   }catch(e){toast('Erro: '+e.message,'err');}
 }
 
 async function renderUsers(){
+  populatePerfilSelects();
   const snap=await db.collection('usuarios').get();
   const users=snap.docs.map(d=>({id:d.id,...d.data()}));
   const el=document.getElementById('listaUsers');
@@ -226,25 +434,31 @@ async function renderUsers(){
     const av=document.createElement('div');av.className='u-av';av.style.flexShrink='0';av.textContent=(u.nome||'?')[0].toUpperCase();
     const info=document.createElement('div');info.style.flex='1';
     const nm=document.createElement('div');nm.className='item-lbl';nm.textContent=u.nome||'--';
-    const em=document.createElement('div');em.className='item-sub';em.textContent=u.email;
+    const em=document.createElement('div');em.className='item-sub';em.textContent=u.email+(u.senhaTemporaria?' • aguardando troca de senha':'');
     info.appendChild(nm);info.appendChild(em);
     const inativo=u.ativo===false;
     if(inativo)row.style.opacity='0.5';
-    const badge=document.createElement('span');badge.className='badge '+(u.perfil==='admin'?'b-admin':'b-gestor');badge.textContent=u.perfil+(inativo?' (inativo)':'');
+    const perfilInfo=PERFIS.find(p=>p.chave===u.perfil);
+    const nomePerfil=perfilInfo?perfilInfo.nome:u.perfil;
+    const badge=document.createElement('span');badge.className='badge '+(u.perfil==='admin'?'b-admin':'b-gestor');badge.textContent=nomePerfil+(inativo?' (inativo)':'');
     const btnAt=document.createElement('button');btnAt.className='btn-icon';btnAt.title=inativo?'Ativar':'Inativar';
     btnAt.innerHTML=inativo?'&#128274;':'&#128275;';
     btnAt.addEventListener('click',function(){toggleAtivoUser(u.id,u.ativo!==false);});
     const btn=document.createElement('button');btn.className='btn-icon';btn.innerHTML='&#9999;';
-    btn.addEventListener('click',function(){openEditUser(u.id,u.nome||'',u.perfil);});
-    row.appendChild(av);row.appendChild(info);row.appendChild(badge);row.appendChild(btnAt);row.appendChild(btn);
+    btn.addEventListener('click',function(){openEditUser(u.id,u.nome||'',u.perfil,u.senhaTemporaria===true);});
+    const btnDel=document.createElement('button');btnDel.className='btn-icon del';btnDel.innerHTML='&#128465;';btnDel.title='Excluir cadastro';
+    btnDel.addEventListener('click',function(){delUsuario(u.id,u.nome||u.email);});
+    row.appendChild(av);row.appendChild(info);row.appendChild(badge);row.appendChild(btnAt);row.appendChild(btn);row.appendChild(btnDel);
     el.appendChild(row);
   });
 }
 
-function openEditUser(id,nome,perfil){
+function openEditUser(id,nome,perfil,senhaTemporaria){
   document.getElementById('muId').value=id;
   document.getElementById('muNome').value=nome;
+  populatePerfilSelects();
   document.getElementById('muPerfil').value=perfil;
+  document.getElementById('muSenhaTemp').checked=!!senhaTemporaria;
   openModal('modalUser');
 }
 
@@ -261,9 +475,66 @@ async function salvarUser(){
   const id=document.getElementById('muId').value;
   const nome=document.getElementById('muNome').value.trim();
   const perfil=document.getElementById('muPerfil').value;
-  await db.collection('usuarios').doc(id).update({nome,perfil});
+  const senhaTemporaria=document.getElementById('muSenhaTemp').checked;
+  await db.collection('usuarios').doc(id).update({nome,perfil,senhaTemporaria});
   closeModal('modalUser');toast('Atualizado!','ok');
   await renderUsers();
+}
+
+// Exclui o CADASTRO do usuario no painel (colecao "usuarios" no Firestore).
+// Isso resolve o problema de cadastros "fantasma": se a conta tambem foi
+// removida direto no Firebase Authentication, use este botao para tirar o
+// registro da lista de Usuarios do painel (o Firestore nao se sincroniza
+// sozinho com exclusoes feitas manualmente no Firebase Auth). Se a conta
+// AINDA existir no Firebase Authentication, exclua-a tambem por la (o SDK
+// do navegador nao tem permissao para apagar a conta de outra pessoa por
+// motivos de seguranca do proprio Firebase).
+async function delUsuario(id,nomeOuEmail){
+  if(id===CU?.uid){toast('Voce nao pode excluir sua propria conta','err');return;}
+  if(!confirm('Excluir o cadastro de "'+nomeOuEmail+'" do painel? Se a conta ainda existir no Firebase Authentication, remova-a tambem por la.'))return;
+  try{
+    await db.collection('usuarios').doc(id).delete();
+    toast('Usuario removido do painel','ok');
+    await renderUsers();
+  }catch(e){toast('Erro ao excluir: '+e.message,'err');}
+}
+
+// === TROCA DE SENHA (obrigatoria no primeiro acesso com senha temporaria,
+// ou voluntaria a qualquer momento pelo botao de chave no menu lateral) ===
+let senhaTrocaObrigatoria=false;
+function abrirTrocarSenha(obrigatoria){
+  senhaTrocaObrigatoria=!!obrigatoria;
+  document.getElementById('smNova').value='';
+  document.getElementById('smConfirma').value='';
+  document.getElementById('smErr').style.display='none';
+  document.getElementById('smAvisoObrig').style.display=senhaTrocaObrigatoria?'block':'none';
+  document.getElementById('smCancelBtn').style.display=senhaTrocaObrigatoria?'none':'block';
+  openModal('modalSenha');
+}
+
+async function confirmarTrocaSenha(){
+  const nova=document.getElementById('smNova').value;
+  const confirma=document.getElementById('smConfirma').value;
+  const errEl=document.getElementById('smErr');
+  errEl.style.display='none';
+  if(nova.length<6){errEl.textContent='A senha deve ter no minimo 6 caracteres.';errEl.style.display='block';return;}
+  if(nova!==confirma){errEl.textContent='As senhas nao coincidem.';errEl.style.display='block';return;}
+  try{
+    await auth.currentUser.updatePassword(nova);
+    if(CU)await db.collection('usuarios').doc(CU.uid).update({senhaTemporaria:false});
+    if(CU)CU.senhaTemporaria=false;
+    closeModal('modalSenha');
+    toast('Senha atualizada com sucesso!','ok');
+  }catch(e){
+    // updatePassword pode exigir login recente; nesse caso, pede para
+    // sair e entrar novamente antes de trocar a senha.
+    if(e.code==='auth/requires-recent-login'){
+      errEl.textContent='Por seguranca, saia e entre novamente antes de trocar a senha.';
+    }else{
+      errEl.textContent='Erro: '+e.message;
+    }
+    errEl.style.display='block';
+  }
 }
 
 // === UNIDADES & PARCEIROS ===
@@ -499,7 +770,7 @@ function renderPerguntasConfig(){
   list.forEach(p=>{
     if(!filtSecao&&p.secao!==lastSec){html+='<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--g700);padding:14px 0 6px;border-top:2px solid var(--g100);margin-top:4px">'+p.secao+'</div>';lastSec=p.secao;}
     html+='<div class="pq-row"><div class="pq-body"><div class="pq-txt">'+p.texto+'</div>';
-    html+='<div class="pq-meta"><span>'+(p.tipo==='nota'?'Nota':'Sim/Nao')+'</span><span class="pq-peso-tag'+(p.peso>=3?' hi':'')+'">Peso '+p.peso+'</span><span>'+p.secao+'</span>'+(ehInversa(p)?'<span style="color:var(--yel)">Inversa</span>':'')+'</div></div>';
+    html+='<div class="pq-meta"><span>'+(p.tipo==='nota'?'Nota':'Sim/Nao')+'</span><span class="pq-peso-tag'+(p.peso>=3?' hi':'')+'">Peso '+p.peso+'</span><span>'+p.secao+'</span>'+(ehInversa(p)?'<span style="color:var(--yel)">Inversa</span>':'')+(p.tipo!=='nota'&&!contaComoNC(p)?'<span style="color:var(--blu)">Nao conta como NC</span>':'')+'</div></div>';
     html+='<button class="btn-icon perg-edit" data-id="'+p.id+'">&#9999;</button>';
     html+='<button class="btn-icon del perg-del" data-id="'+p.id+'">&#128465;</button></div>';
   });
@@ -514,28 +785,43 @@ function openModalPerg(id){
     document.getElementById('mpTxt').value=p.texto||'';
     document.getElementById('mpSec').value=p.secao||'Identificacao da APR';
     document.getElementById('mpTipo').value=p.tipo||'simnao';
-    document.getElementById('mpPeso').value=p.peso||1;
+    document.getElementById('mpPeso').value=(p.peso!=null?p.peso:1);
     document.getElementById('mpOrdem').value=p.ordem||1;
     document.getElementById('mpInversa').checked=ehInversa(p);
+    document.getElementById('mpContaNC').checked=contaComoNC(p);
   }else{
     document.getElementById('mpTxt').value='';
     document.getElementById('mpSec').value='Identificacao da APR';
     document.getElementById('mpTipo').value='simnao';
     document.getElementById('mpPeso').value=1;document.getElementById('mpOrdem').value=1;
     document.getElementById('mpInversa').checked=false;
+    document.getElementById('mpContaNC').checked=true;
   }
+  atualizarVisibilidadeNCToggle();
   openModal('modalPerg');
+}
+
+// A opcao "conta como Nao Conformidade" so faz sentido para perguntas
+// Sim/Nao — perguntas do tipo Nota nao tem esse conceito.
+function atualizarVisibilidadeNCToggle(){
+  const tipo=document.getElementById('mpTipo').value;
+  document.getElementById('mpNCWrap').style.display=tipo==='nota'?'none':'block';
 }
 
 async function salvarPergunta(){
   const id=document.getElementById('mpId').value;
+  const pesoInput=document.getElementById('mpPeso').value;
+  let peso=parseInt(pesoInput);
+  if(Number.isNaN(peso))peso=1;
+  peso=Math.max(0,Math.min(5,peso));
   const data={
     texto:document.getElementById('mpTxt').value.trim(),
     secao:document.getElementById('mpSec').value,
     tipo:document.getElementById('mpTipo').value,
-    peso:parseInt(document.getElementById('mpPeso').value)||1,
+    peso,
     ordem:parseInt(document.getElementById('mpOrdem').value)||1,
     inversa:document.getElementById('mpInversa').checked,
+    contaComoNC:document.getElementById('mpContaNC').checked,
   };
   if(!data.texto){toast('Digite o texto','err');return;}
   if(id)await db.collection('perguntas').doc(id).update(data);
@@ -565,10 +851,13 @@ async function enviarAuditoria(){
   let obtidos=0,maximos=0,isNC=false;
   PERGUNTAS.forEach(p=>{
     if(p.tipo==='nota')return;
-    maximos+=p.peso;
+    maximos+=p.peso; // pergunta com peso 0 nao influencia a % de conformidade
     const ok=ehInversa(p)?RESPOSTAS[p.id]==='Nao':RESPOSTAS[p.id]==='Sim';
     if(ok)obtidos+=p.peso;
-    if(!ok)isNC=true;
+    // perguntas marcadas como "nao conta como NC" (ex: informativas, tipo
+    // "foi feito registro fotografico?") nunca marcam a auditoria como NC,
+    // mesmo respondidas fora do padrao esperado.
+    if(!ok&&contaComoNC(p))isNC=true;
   });
   const conformidade=maximos>0?Math.round((obtidos/maximos)*100):0;
   const notaP=PERGUNTAS.find(p=>p.tipo==='nota');
@@ -623,7 +912,7 @@ function recalcAuditoria(a){
     maximos+=p.peso;
     const ok=ehInversa(p)?resp==='Nao':resp==='Sim';
     if(ok)obtidos+=p.peso;
-    if(!ok)isNC=true;
+    if(!ok&&contaComoNC(p))isNC=true;
   });
   if(temPerguntaRespondida){
     a.conformidade=maximos>0?Math.round((obtidos/maximos)*100):0;
@@ -734,11 +1023,14 @@ function renderDash(){
 
   // Perguntas com mais Nao Conformidades: conta, entre as auditorias filtradas,
   // quantas vezes cada pergunta Sim/Nao foi respondida fora do padrao esperado.
+  // Perguntas marcadas como "nao conta como NC" ficam de fora deste ranking,
+  // pois sao apenas informativas (ex: registro fotografico).
   const ncPorPergunta={};
   dados.forEach(a=>{
     const respostas=a.respostas||{};
     PERGUNTAS.forEach(p=>{
       if(p.tipo==='nota')return;
+      if(!contaComoNC(p))return;
       const resp=respostas[p.id];
       if(resp===undefined)return;
       const ok=ehInversa(p)?resp==='Nao':resp==='Sim';
@@ -802,6 +1094,51 @@ async function delAuditoria(id){
 }
 
 // === IMPRESSAO ===
+// === EXPORTACAO EM PDF DO DASHBOARD ===
+// Usa html2canvas para "fotografar" a area do dashboard (KPIs + graficos +
+// ranking) e jsPDF para montar um PDF, paginando automaticamente se o
+// conteudo for mais alto que uma pagina A4.
+async function exportarDashboardPDF(){
+  const btn=document.getElementById('btnExportPDF');
+  const area=document.getElementById('dashCapture');
+  if(!area){toast('Nao foi possivel localizar o dashboard','err');return;}
+  const textoOriginal=btn.innerHTML;
+  btn.disabled=true;btn.innerHTML='Gerando PDF...';
+  try{
+    const canvas=await html2canvas(area,{scale:2,backgroundColor:'#EEF4EF',useCORS:true});
+    const{jsPDF}=window.jspdf;
+    const pdf=new jsPDF('p','mm','a4');
+    const pageW=pdf.internal.pageSize.getWidth();
+    const pageH=pdf.internal.pageSize.getHeight();
+    const imgW=pageW-20; // margem de 10mm de cada lado
+    const imgH=(canvas.height*imgW)/canvas.width;
+    const imgData=canvas.toDataURL('image/png');
+    // Titulo/cabecalho na primeira pagina
+    pdf.setFontSize(14);
+    pdf.setTextColor(27,107,46);
+    pdf.text('Dashboard - Auditoria APR',10,12);
+    pdf.setFontSize(9);
+    pdf.setTextColor(100,116,139);
+    pdf.text('Gerado em '+new Date().toLocaleString('pt-BR'),10,18);
+    let heightLeft=imgH,position=24;
+    pdf.addImage(imgData,'PNG',10,position,imgW,imgH);
+    heightLeft-=(pageH-position);
+    while(heightLeft>0){
+      pdf.addPage();
+      position=heightLeft-imgH+10;
+      pdf.addImage(imgData,'PNG',10,position,imgW,imgH);
+      heightLeft-=pageH;
+    }
+    pdf.save('dashboard-auditoria-apr-'+new Date().toISOString().split('T')[0]+'.pdf');
+    toast('PDF gerado com sucesso!','ok');
+  }catch(e){
+    toast('Erro ao gerar PDF: '+e.message,'err');
+    console.error(e);
+  }finally{
+    btn.disabled=false;btn.innerHTML=textoOriginal;
+  }
+}
+
 function openPrint(id){
   const a=AUDITORIAS.find(x=>x.id===id);if(!a)return;
   const conf=a.conformidade??0;const corC=corConf(conf);const isNC=a.naoConformidade;
@@ -846,6 +1183,11 @@ function openPrint(id){
 async function goP(btn){
   hideInfo();
   const id=btn.getAttribute('data-page');
+  if(id==='perfis'){
+    if(CU.perfil!=='admin'){toast('Apenas o perfil Admin acessa esta pagina','err');return;}
+  }else if(!temPermissao(id)){
+    toast('Voce nao tem permissao para acessar esta pagina','err');return;
+  }
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
   document.getElementById('page-'+id).classList.add('active');
@@ -853,7 +1195,8 @@ async function goP(btn){
   document.getElementById('topbarT').textContent=PAGE_TITLES[id]||id;
   if(id==='configuracoes')await renderUnidadesCfg();
   if(id==='perguntas'){await loadPerguntas();renderPerguntasConfig();}
-  if(id==='usuarios'){await renderUsers();renderAuditoresConfig();}
+  if(id==='usuarios'){await renderUsers();renderAuditoresConfig();populatePerfilSelects();}
+  if(id==='perfis'){await loadPerfis();renderPerfisList();}
   if(id==='dashboard')renderDash();
   if(id==='registros')renderReg();
 }
