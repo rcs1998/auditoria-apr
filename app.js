@@ -1,5 +1,5 @@
 // === GLOBALS ===
-let db,auth,authSecundario,CU=null,unsubAuditores=null;
+let db,auth,authSecundario,functionsFB,CU=null,unsubAuditores=null;
 let UNIDADES=[],AUDITORIAS=[],PERGUNTAS=[],AUDITORES=[],PERFIS=[];
 let RESPOSTAS={},CHARTS={},filtSecao='';
 const CORES=['#1B6B2E','#16A34A','#D97706','#1D4ED8','#DC2626','#7C3AED','#0891B2','#DB2777'];
@@ -84,6 +84,7 @@ function initFB(cfg){
     if(!firebase.apps.length)firebase.initializeApp(cfg);
     db=firebase.firestore();
     auth=firebase.auth();
+    functionsFB=firebase.functions();
     // App Firebase SECUNDARIO, usado apenas para criar novos usuarios.
     // Motivo: firebase.auth().createUserWithEmailAndPassword() na instancia
     // PRINCIPAL loga automaticamente como o usuario recem-criado, derrubando
@@ -168,6 +169,31 @@ async function addAuditor(){
   }catch(e){toast('Erro ao adicionar: '+e.message,'err');}
 }
 
+// Define uma nova senha para um usuario JA CADASTRADO que esqueceu a
+// senha. Isso exige uma Cloud Function com Admin SDK (ver functions/index.js
+// no projeto) — o SDK do navegador nao tem permissao para trocar a senha
+// de outra conta. Se a function ainda nao estiver publicada, mostramos um
+// erro explicando isso, sem quebrar o restante do painel.
+async function redefinirSenhaUsuario(uid,nomeOuEmail){
+  const chars='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  let sugestao='';for(let i=0;i<10;i++)sugestao+=chars[Math.floor(Math.random()*chars.length)];
+  const novaSenha=prompt('Nova senha temporaria para "'+nomeOuEmail+'" (minimo 6 caracteres).\nSugestao pronta abaixo, pode editar:',sugestao);
+  if(novaSenha===null)return; // cancelou
+  if(novaSenha.length<6){toast('A senha deve ter no minimo 6 caracteres','err');return;}
+  try{
+    const fn=functionsFB.httpsCallable('adminSetUserPassword');
+    await fn({uid,novaSenha});
+    toast('Senha redefinida! Informe a nova senha a '+nomeOuEmail+'.','ok');
+    await renderUsers();
+  }catch(e){
+    if(e.code==='functions/not-found'||e.code==='not-found'||/not.?found/i.test(e.message||'')){
+      toast('Recurso de redefinicao ainda nao publicado (Cloud Function). Veja o CORRECOES-LEIAME.md para publicar.','err');
+    }else{
+      toast('Erro: '+e.message,'err');
+    }
+  }
+}
+
 async function delAuditor(id){
   if(!confirm('Remover este auditor da lista?'))return;
   try{
@@ -184,10 +210,18 @@ async function delAuditor(id){
 // isso e travado no codigo (nao so nos dados) para nunca deixar ninguem
 // bloqueado da area que gerencia os proprios perfis.
 async function loadPerfis(){
-  const snap=await db.collection('perfis').get();
-  PERFIS=snap.docs.map(d=>({id:d.id,...d.data()}));
-  if(!PERFIS.length){
-    try{await seedPerfis();}catch(e){console.warn('Nao foi possivel semear os perfis padrao:',e);}
+  try{
+    const snap=await db.collection('perfis').get();
+    PERFIS=snap.docs.map(d=>({id:d.id,...d.data()}));
+    if(!PERFIS.length){
+      try{await seedPerfis();}catch(e){console.warn('Nao foi possivel semear os perfis padrao:',e);}
+    }
+  }catch(e){
+    // Se a colecao "perfis" ainda nao tiver regra de seguranca liberada no
+    // Firestore, este erro NAO deve travar o login inteiro. O sistema cai
+    // para o acesso minimo (ver permissoesDoPerfil) ate a regra ser corrigida.
+    console.warn('Nao foi possivel carregar perfis de acesso (verifique as regras do Firestore para a colecao "perfis"):',e);
+    PERFIS=[];
   }
 }
 
@@ -361,7 +395,7 @@ async function onLogin(u){
     if(primeiroBtn)goP(primeiroBtn);
   }
   // Senha temporaria: obriga a troca antes de liberar qualquer outra acao.
-  if(CU.senhaTemporaria===true)abrirTrocarSenha(true);
+  if(CU.exigeTrocaSenha===true)abrirTrocarSenha(true);
 }
 
 // Mostra/esconde os itens do menu lateral conforme as permissoes do
@@ -408,7 +442,7 @@ async function criarUsuario(){
       await cred.user.updateProfile({displayName:nome});
       await db.collection('usuarios').doc(cred.user.uid).set({
         nome,email,perfil,ativo:true,
-        senhaTemporaria:true, // usuario sera obrigado a trocar no primeiro acesso
+        exigeTrocaSenha:true, // usuario sera obrigado a trocar no primeiro acesso
         criadoEm:new Date()
       });
     }finally{
@@ -434,7 +468,7 @@ async function renderUsers(){
     const av=document.createElement('div');av.className='u-av';av.style.flexShrink='0';av.textContent=(u.nome||'?')[0].toUpperCase();
     const info=document.createElement('div');info.style.flex='1';
     const nm=document.createElement('div');nm.className='item-lbl';nm.textContent=u.nome||'--';
-    const em=document.createElement('div');em.className='item-sub';em.textContent=u.email+(u.senhaTemporaria?' • aguardando troca de senha':'');
+    const em=document.createElement('div');em.className='item-sub';em.textContent=u.email+(u.exigeTrocaSenha?' • aguardando troca de senha':'');
     info.appendChild(nm);info.appendChild(em);
     const inativo=u.ativo===false;
     if(inativo)row.style.opacity='0.5';
@@ -444,21 +478,24 @@ async function renderUsers(){
     const btnAt=document.createElement('button');btnAt.className='btn-icon';btnAt.title=inativo?'Ativar':'Inativar';
     btnAt.innerHTML=inativo?'&#128274;':'&#128275;';
     btnAt.addEventListener('click',function(){toggleAtivoUser(u.id,u.ativo!==false);});
+    const btnRS=document.createElement('button');btnRS.className='btn-icon';btnRS.innerHTML='&#128273;';btnRS.title='Definir nova senha (usuario esqueceu a senha)';
+    btnRS.addEventListener('click',function(){redefinirSenhaUsuario(u.id,u.nome||u.email);});
+    if(CU.perfil!=='admin')btnRS.style.display='none';
     const btn=document.createElement('button');btn.className='btn-icon';btn.innerHTML='&#9999;';
-    btn.addEventListener('click',function(){openEditUser(u.id,u.nome||'',u.perfil,u.senhaTemporaria===true);});
+    btn.addEventListener('click',function(){openEditUser(u.id,u.nome||'',u.perfil,u.exigeTrocaSenha===true);});
     const btnDel=document.createElement('button');btnDel.className='btn-icon del';btnDel.innerHTML='&#128465;';btnDel.title='Excluir cadastro';
     btnDel.addEventListener('click',function(){delUsuario(u.id,u.nome||u.email);});
-    row.appendChild(av);row.appendChild(info);row.appendChild(badge);row.appendChild(btnAt);row.appendChild(btn);row.appendChild(btnDel);
+    row.appendChild(av);row.appendChild(info);row.appendChild(badge);row.appendChild(btnAt);row.appendChild(btnRS);row.appendChild(btn);row.appendChild(btnDel);
     el.appendChild(row);
   });
 }
 
-function openEditUser(id,nome,perfil,senhaTemporaria){
+function openEditUser(id,nome,perfil,exigeTrocaSenha){
   document.getElementById('muId').value=id;
   document.getElementById('muNome').value=nome;
   populatePerfilSelects();
   document.getElementById('muPerfil').value=perfil;
-  document.getElementById('muSenhaTemp').checked=!!senhaTemporaria;
+  document.getElementById('muSenhaTemp').checked=!!exigeTrocaSenha;
   openModal('modalUser');
 }
 
@@ -475,8 +512,8 @@ async function salvarUser(){
   const id=document.getElementById('muId').value;
   const nome=document.getElementById('muNome').value.trim();
   const perfil=document.getElementById('muPerfil').value;
-  const senhaTemporaria=document.getElementById('muSenhaTemp').checked;
-  await db.collection('usuarios').doc(id).update({nome,perfil,senhaTemporaria});
+  const exigeTrocaSenha=document.getElementById('muSenhaTemp').checked;
+  await db.collection('usuarios').doc(id).update({nome,perfil,exigeTrocaSenha});
   closeModal('modalUser');toast('Atualizado!','ok');
   await renderUsers();
 }
@@ -521,8 +558,8 @@ async function confirmarTrocaSenha(){
   if(nova!==confirma){errEl.textContent='As senhas nao coincidem.';errEl.style.display='block';return;}
   try{
     await auth.currentUser.updatePassword(nova);
-    if(CU)await db.collection('usuarios').doc(CU.uid).update({senhaTemporaria:false});
-    if(CU)CU.senhaTemporaria=false;
+    if(CU)await db.collection('usuarios').doc(CU.uid).update({exigeTrocaSenha:false});
+    if(CU)CU.exigeTrocaSenha=false;
     closeModal('modalSenha');
     toast('Senha atualizada com sucesso!','ok');
   }catch(e){
