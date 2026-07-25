@@ -1,0 +1,105 @@
+rules_version = '2';
+
+// ═══════════════════════════════════════════════════════════════
+// REGRAS DE SEGURANÇA — Auditoria APR
+// ═══════════════════════════════════════════════════════════════
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ──────────────────────────────────────────────────
+    function estaLogado() {
+      return request.auth != null;
+    }
+
+    function meuPerfil() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.perfil;
+    }
+
+    function estouAtivo() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.get('ativo', true) != false;
+    }
+
+    function souGestorOuAdmin() {
+      return estaLogado() && estouAtivo() && meuPerfil() in ['gestor', 'admin'];
+    }
+
+    function souAdmin() {
+      return estaLogado() && estouAtivo() && meuPerfil() == 'admin';
+    }
+
+    // ── _ping — teste de conectividade ───────────────────────────
+    match /_ping/{doc} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ── usuarios/{uid} ───────────────────────────────────────────
+    match /usuarios/{uid} {
+      allow read: if estaLogado();
+      allow create: if estaLogado() && (request.auth.uid == uid || souGestorOuAdmin());
+      allow update: if souGestorOuAdmin() ||
+                       (estaLogado() && request.auth.uid == uid &&
+                        request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly(['exigeTrocaSenha']));
+      allow delete: if souAdmin();
+    }
+
+    // ── perfis/{perfilId} ────────────────────────────────────────
+    // Define quais paginas cada perfil de acesso pode ver (dashboard,
+    // registros, perguntas, usuarios, configuracoes). Qualquer usuario
+    // logado precisa poder LER (o proprio app usa isso pra saber o que
+    // mostrar no menu pra ele mesmo), mas só admin pode criar/editar/
+    // excluir perfis.
+    match /perfis/{perfilId} {
+      allow read: if estaLogado();
+      allow write: if souAdmin();
+    }
+
+    // ── config ───────────────────────────────────────────────────
+    match /config/admins {
+      allow read: if estaLogado();
+      allow write: if souAdmin();
+    }
+
+    match /config/perguntas {
+      allow read: if estaLogado();
+      allow write: if false;
+    }
+
+    // ── perguntas/{id} ───────────────────────────────────────────
+    // PÚBLICO: o formulário carrega as perguntas sem login
+    match /perguntas/{id} {
+      allow read: if true;
+      allow write: if souGestorOuAdmin();
+    }
+
+    // ── auditores/{id} ───────────────────────────────────────────
+    // PÚBLICO: a lista de auditores aparece no formulário sem login
+    match /auditores/{id} {
+      allow read: if true;
+      allow write: if souGestorOuAdmin();
+    }
+
+    // ── unidades e parceiros ─────────────────────────────────────
+    // PÚBLICO: unidades e parceiros aparecem no formulário sem login
+    match /unidades/{unidadeId} {
+      allow read: if true;
+      allow write: if souAdmin();
+
+      match /parceiros/{parceiroId} {
+        allow read: if true;
+        allow write: if souAdmin();
+      }
+    }
+
+    // ── auditorias/{id} ──────────────────────────────────────────
+    // Qualquer pessoa pode ENVIAR (criar) uma auditoria pelo formulário
+    // público. Leitura e edição exigem login.
+    match /auditorias/{auditoriaId} {
+      allow create: if true;
+      allow read: if estaLogado();
+      allow update: if souGestorOuAdmin();
+      allow delete: if souAdmin();
+    }
+  }
+}
