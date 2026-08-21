@@ -46,7 +46,7 @@ body{font-family:var(--f);background:var(--bg);color:var(--s900);min-height:100v
 .btn-icon:hover{background:var(--s100)}
 .btn-icon.del:hover{background:var(--redl)}
 #s-app{flex-direction:row}
-.sidebar{width:224px;flex-shrink:0;background:var(--g900);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50;box-shadow:4px 0 24px rgba(0,0,0,.2)}
+.sidebar{width:224px;flex-shrink:0;background:var(--g900);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50;box-shadow:4px 0 24px rgba(0,0,0,.2);transition:width .18s ease}
 .sb-logo{padding:22px 18px 16px;border-bottom:1px solid rgba(255,255,255,.08)}
 .sb-logo .icon{width:36px;height:36px;background:var(--g500);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:8px}
 .sb-logo h2{color:#fff;font-weight:800;font-size:13px;line-height:1.3}
@@ -63,7 +63,16 @@ body{font-family:var(--f);background:var(--bg);color:var(--s900);min-height:100v
 .u-nm{font-size:12px;font-weight:600;color:rgba(255,255,255,.8);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .btn-out{background:none;border:none;cursor:pointer;color:rgba(255,255,255,.35);font-size:16px;padding:2px;transition:color .15s}
 .btn-out:hover{color:var(--red)}
-.main{margin-left:224px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+.main{margin-left:224px;flex:1;display:flex;flex-direction:column;min-height:100vh;transition:margin-left .18s ease}
+.sb-toggle{background:none;border:none;cursor:pointer;color:var(--s500);font-size:18px;padding:4px 6px;border-radius:var(--rsm);line-height:1;transition:background .15s,color .15s}
+.sb-toggle:hover{background:var(--s100);color:var(--s700)}
+/* Menu lateral recolhido manualmente: mesmo tratamento visual do modo mobile
+   (so icones), mas acionado pelo botao da topbar em qualquer largura de tela. */
+#s-app.sb-collapsed .sidebar{width:58px}
+#s-app.sb-collapsed .sb-logo h2,#s-app.sb-collapsed .sb-logo p,#s-app.sb-collapsed .nb span:not(.ni),#s-app.sb-collapsed .sb-sec,#s-app.sb-collapsed .u-nm{display:none}
+#s-app.sb-collapsed .nb{justify-content:center;padding:11px}
+#s-app.sb-collapsed .sb-logo{padding:14px 8px}
+#s-app.sb-collapsed .main{margin-left:58px}
 .topbar{background:var(--wh);border-bottom:1px solid var(--s300);padding:13px 28px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:40;box-shadow:var(--shsm)}
 .topbar-title{font-weight:800;font-size:16px;flex:1}
 .page{padding:26px 28px;flex:1;display:none}
@@ -119,6 +128,8 @@ tbody tr:last-child td{border-bottom:none}
 .filters{display:flex;align-items:center;gap:8px;margin-bottom:20px;flex-wrap:wrap}
 .filters select{font-family:var(--f);font-size:13px;font-weight:500;padding:6px 11px;border-radius:var(--rsm);border:1.5px solid var(--s300);color:var(--s700);background:var(--wh);outline:none;cursor:pointer}
 .filters select:hover{border-color:var(--g500)}
+.filters input[type=date],.filters input[type=month]{font-family:var(--f);font-size:13px;font-weight:500;padding:5.5px 11px;border-radius:var(--rsm);border:1.5px solid var(--s300);color:var(--s700);background:var(--wh);outline:none}
+.filters input[type=date]:hover,.filters input[type=month]:hover{border-color:var(--g500)}
 .flbl{font-size:12px;font-weight:600;color:var(--s500)}
 .btn-ref{font-family:var(--f);font-size:13px;font-weight:700;padding:7px 14px;border-radius:var(--rsm);border:none;background:var(--g700);color:#fff;cursor:pointer;display:flex;align-items:center;gap:5px;transition:background .15s}
 .btn-ref:hover{background:var(--g500)}

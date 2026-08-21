@@ -92,6 +92,7 @@
 </aside>
 <div class="main">
   <div class="topbar">
+    <button class="sb-toggle" onclick="toggleSidebar()" title="Recolher/Expandir menu">&#9776;</button>
     <div class="topbar-title" id="topbarT">Dashboard</div>
     <span id="roleBadge" class="badge" style="margin-left:auto"></span>
   </div>
@@ -103,12 +104,20 @@
       <span class="flbl">Empresa:</span><select id="dParc" onchange="renderDash()"><option value="">Todas</option></select>
       <span class="flbl">Auditor:</span><select id="dAudit" onchange="renderDash()"><option value="">Todos</option></select>
       <span class="flbl">Periodo:</span>
-      <select id="dPer" onchange="renderDash()">
+      <select id="dPer" onchange="onPerChange()">
         <option value="">Todo periodo</option>
+        <option value="mes-atual">Mes atual</option>
+        <option value="mes-passado">Mes passado</option>
         <option value="30">Ultimos 30 dias</option>
         <option value="90">Ultimos 90 dias</option>
         <option value="180">Ultimos 6 meses</option>
+        <option value="mes">Escolher mes</option>
+        <option value="custom">Periodo personalizado</option>
       </select>
+      <input type="month" id="dMes" style="display:none" onchange="renderDash()">
+      <input type="date" id="dDe" style="display:none" onchange="renderDash()">
+      <span class="flbl" id="dAteLbl" style="display:none">ate</span>
+      <input type="date" id="dAte" style="display:none" onchange="renderDash()">
       <button class="btn-ref" onclick="loadAuditorias()">Atualizar</button>
       <button class="btn-ref" id="btnExportPDF" style="background:var(--blu)" onclick="exportarDashboardPDF()">&#128196; Exportar PDF</button>
     </div>

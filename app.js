@@ -971,15 +971,66 @@ function atualizarFiltroEmpresas(){
   });
 }
 
+// Traduz o valor selecionado no filtro "Periodo" em um intervalo {start,end}.
+// Presets relativos (30/90/180) continuam usando apenas "start" (sem limite
+// superior). Mes atual/passado, mes escolhido e periodo personalizado usam
+// start e end. Retorna null quando o filtro e "Todo periodo".
+function calcPeriodoRange(per){
+  if(!per)return null;
+  const hoje=new Date();
+  if(per==='mes-atual'){
+    return{start:new Date(hoje.getFullYear(),hoje.getMonth(),1),
+           end:new Date(hoje.getFullYear(),hoje.getMonth()+1,0,23,59,59,999)};
+  }
+  if(per==='mes-passado'){
+    return{start:new Date(hoje.getFullYear(),hoje.getMonth()-1,1),
+           end:new Date(hoje.getFullYear(),hoje.getMonth(),0,23,59,59,999)};
+  }
+  if(per==='mes'){
+    const v=document.getElementById('dMes')?.value;// yyyy-mm
+    if(!v)return null;
+    const[y,m]=v.split('-').map(Number);
+    return{start:new Date(y,m-1,1),end:new Date(y,m,0,23,59,59,999)};
+  }
+  if(per==='custom'){
+    const de=document.getElementById('dDe')?.value;
+    const ate=document.getElementById('dAte')?.value;
+    if(!de&&!ate)return null;
+    return{start:de?new Date(de+'T00:00:00'):null,end:ate?new Date(ate+'T23:59:59.999'):null};
+  }
+  // presets numericos antigos (30/90/180 dias)
+  return{start:new Date(Date.now()-parseInt(per)*864e5),end:null};
+}
+
+// Mostra/esconde os campos extras (mes ou intervalo de datas) conforme o
+// preset escolhido e re-renderiza o dashboard.
+function onPerChange(){
+  const v=document.getElementById('dPer')?.value;
+  const mes=document.getElementById('dMes');
+  const de=document.getElementById('dDe');
+  const ateLbl=document.getElementById('dAteLbl');
+  const ate=document.getElementById('dAte');
+  if(mes)mes.style.display=v==='mes'?'':'none';
+  const mostrarCustom=v==='custom';
+  if(de)de.style.display=mostrarCustom?'':'none';
+  if(ateLbl)ateLbl.style.display=mostrarCustom?'':'none';
+  if(ate)ate.style.display=mostrarCustom?'':'none';
+  renderDash();
+}
+
 function getFilt(unid,parc,audit,per,nc){
-  const cutoff=per?new Date(Date.now()-parseInt(per)*864e5):null;
+  const range=calcPeriodoRange(per);
   return AUDITORIAS.filter(a=>{
     if(unid&&a.unidadeId!==unid)return false;
     if(parc&&a.parceiro!==parc)return false;
     if(audit&&a.auditor!==audit)return false;
     if(nc==='nc'&&!a.naoConformidade)return false;
     if(nc==='ok'&&a.naoConformidade)return false;
-    if(cutoff&&a.data&&new Date(a.data)<cutoff)return false;
+    if(range&&a.data){
+      const d=new Date(a.data);
+      if(range.start&&d<range.start)return false;
+      if(range.end&&d>range.end)return false;
+    }
     return true;
   });
 }
@@ -1278,6 +1329,25 @@ function toast(msg,type=''){
   el.textContent=msg;el.className='toast show'+(type==='ok'?' ok':type==='err'?' err':'');
   clearTimeout(toastT);toastT=setTimeout(()=>{el.className='toast';},3500);
 }
+
+// === MENU LATERAL RECOLHIVEL ===
+// Alterna a classe que recolhe a sidebar (so icones) e guarda a preferencia
+// no localStorage para persistir entre sessoes/recarregamentos.
+function toggleSidebar(){
+  const app=document.getElementById('s-app');
+  if(!app)return;
+  const recolhido=app.classList.toggle('sb-collapsed');
+  try{localStorage.setItem('sbCollapsed',recolhido?'1':'0');}catch(e){}
+}
+// Aplica a preferencia salva assim que o script carrega (script esta no fim
+// do body, entao o DOM ja existe nesse ponto).
+(function aplicarPreferenciaSidebar(){
+  try{
+    if(localStorage.getItem('sbCollapsed')==='1'){
+      document.getElementById('s-app')?.classList.add('sb-collapsed');
+    }
+  }catch(e){}
+})();
 
 // === SERVICE WORKER (instalacao/uso offline do app shell) ===
 // Registra o service-worker.js para permitir "Adicionar a tela inicial" e
